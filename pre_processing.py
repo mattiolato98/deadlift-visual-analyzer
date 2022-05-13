@@ -4,6 +4,10 @@ import os
 
 path = os.getcwd()+"/dataset"
 
+def extract_foreground(frame):
+    fgbg2 = cv2.createBackgroundSubtractorMOG2()
+    mask = fgbg2.apply(frame)
+    return mask
 
 def preprocess():
     for filename in files(path):
@@ -17,7 +21,7 @@ def preprocess():
             ret, frame = cap.read()
             if ret == False:
                 break
-            if i % 8 == 0:
+            if i % div_num == 0:
                 j += 1
                 cv2.imwrite(os.getcwd()+f"/{filename}_frames/frame_" + str(j) + '.jpg', frame)
             i += 1
@@ -25,7 +29,7 @@ def preprocess():
         cap.release()
         cv2.destroyAllWindows()
 
-c
+
 def files(path):
     for file in os.listdir(path):
         if os.path.isfile(os.path.join(path, file)):
