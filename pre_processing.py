@@ -19,7 +19,7 @@ def preprocess():
         div_num = round(length / 14) - 1
         while cap.isOpened():
             ret, frame = cap.read()
-            if ret == False:
+            if not ret:
                 break
             if i % div_num == 0:
                 j += 1
