@@ -1,0 +1,5 @@
+Pipfile.lock
+.idea
+dataset/
+__pycache
+.DS_Store
