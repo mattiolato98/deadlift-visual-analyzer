@@ -1,5 +1,5 @@
 .python-version
 .idea
 dataset/
-__pycache
+__pycache__/
 .DS_Store
