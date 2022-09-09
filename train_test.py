@@ -12,6 +12,7 @@ import os
 import time
 import copy
 import numpy as np
+import torchvision
 from torch.utils.data import Dataset, SubsetRandomSampler
 from torchvision import datasets
 import pandas as pd
@@ -34,7 +35,9 @@ from typing import Dict
 
 import torch.optim as optim
 from torch import nn
-
+from pathlib import Path
+import datasets
+import transforms
 '''
 ####################
 # SlowFast transform
@@ -84,6 +87,13 @@ transform =  ApplyTransformToKey(
     ),
 )
 '''
+model_path = Path("models")
+model_path.mkdir(parents=True, exist_ok=True)
+
+model_name = "slow_r50_deadlift_v1.pth"
+model_save_path = model_path / model_name
+
+
 ####################
 # Slow transform
 ####################
@@ -147,9 +157,24 @@ class DeadliftDataset(Dataset):
         # sample = {'video' : video_data, 'label' : label }
 
         return video_data["video"], label
+dataset_path = "Dataset"
+# dataset = "Dataset_small"
+# deadlift_dataset = DeadliftDataset(root=dataset_path,
+#                                    csv_file=dataset_path+"/dataset.csv", transform=transform)
 
-deadlift_dataset = DeadliftDataset(root="Dataset_small",
-                                   csv_file="Dataset_small/dataset.csv", transform=transform)
+deadlift_dataset  = datasets.VideoLabelDataset(
+    dataset_path + "/dataset.csv",
+    transform=torchvision.transforms.Compose([
+        transforms.VideoFilePathToTensor(max_len=None, fps=25, padding_mode='last'),
+        UniformTemporalSubsample(num_frames),
+        Lambda(lambda x: x / 255.0),
+        NormalizeVideo(mean, std),
+        RandomShortSideScale(min_size=256, max_size=320),
+        RandomCrop(224),
+        RandomHorizontalFlip(p=0.5)
+
+    ])
+)
 
 dataset_size = len(deadlift_dataset)
 dataset_indices = list(range(dataset_size))
@@ -164,7 +189,7 @@ train_loader = torch.utils.data.DataLoader(
     batch_size=8,
     dataset=deadlift_dataset,
     sampler=train_sampler,
-    num_workers=0,
+    num_workers=4,
     pin_memory=True
 
 )
@@ -172,8 +197,11 @@ val_loader = torch.utils.data.DataLoader(
     dataset=deadlift_dataset,
     batch_size=8,
     sampler=val_sampler,
-    num_workers=0,
+    num_workers=4,
     pin_memory=True)
+
+
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -354,13 +382,14 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
+                print("Gradient descent done")
                 _, preds = torch.max(outputs, 1)
                 print(f"Preds : {preds}")
                 # statistics
 
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
+                print("Loss e acc added to the epoch stats")
 
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = running_corrects.double() / len(train_loader.dataset)
@@ -424,6 +453,13 @@ optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
 loss = nn.CrossEntropyLoss()
 model_ft = model_ft.to(device)
 model_ft, hist = train_model_v2(model_ft, train_loader, val_loader, loss, optimizer_ft, num_epochs=num_epochs)
+print(f"Saving model to; {model_save_path}")
+torch.save(obj=model_ft.state_dict(), f=model_save_path)
+
+# Example of loading saved model parameters
+
+
+
 
 '''
 # Load the example video
