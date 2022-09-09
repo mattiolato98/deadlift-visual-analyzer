@@ -12,7 +12,7 @@ import os
 import time
 import copy
 import numpy as np
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, SubsetRandomSampler
 from torchvision import datasets
 import pandas as pd
 
@@ -104,9 +104,9 @@ transform = ApplyTransformToKey(
             UniformTemporalSubsample(num_frames),
             Lambda(lambda x: x / 255.0),
             NormalizeVideo(mean, std),
-            # RandomShortSideScale(min_size=256, max_size=320),
-            # RandomCrop(224),
-            # RandomHorizontalFlip(p=0.5)
+            RandomShortSideScale(min_size=256, max_size=320),
+            RandomCrop(224),
+            RandomHorizontalFlip(p=0.5)
         ]
     ),
 )
@@ -140,27 +140,42 @@ class DeadliftDataset(Dataset):
         label = self.videos.iloc[idx, 1]
 
         if self.transform:
-            print("Transforming ...")
+            # print("Transforming ...")
             video_data = self.transform(video_data)
-            print("Transformation done")
+            # print("Transformation done")
 
         # sample = {'video' : video_data, 'label' : label }
 
         return video_data["video"], label
 
-deadlift_dataset = DeadliftDataset(root="Dataset",
-                                   csv_file="Dataset/dataset.csv", transform=transform)
+deadlift_dataset = DeadliftDataset(root="Dataset_small",
+                                   csv_file="Dataset_small/dataset.csv", transform=transform)
 
-data_loader = torch.utils.data.DataLoader(
-    batch_size=1,
+dataset_size = len(deadlift_dataset)
+dataset_indices = list(range(dataset_size))
+np.random.shuffle(dataset_indices)
+val_split_index = int(np.floor(0.2 * dataset_size))
+train_idx, val_idx = dataset_indices[val_split_index:], dataset_indices[:val_split_index]
+
+train_sampler = SubsetRandomSampler(train_idx)
+val_sampler = SubsetRandomSampler(val_idx)
+
+train_loader = torch.utils.data.DataLoader(
+    batch_size=8,
     dataset=deadlift_dataset,
-    shuffle=True,
-    num_workers=4,
+    sampler=train_sampler,
+    num_workers=0,
     pin_memory=True
 
 )
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+val_loader = torch.utils.data.DataLoader(
+    dataset=deadlift_dataset,
+    batch_size=8,
+    sampler=val_sampler,
+    num_workers=0,
+    pin_memory=True)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def set_parameter_requires_grad(model, feature_extracting):
     if feature_extracting:
@@ -170,8 +185,8 @@ def set_parameter_requires_grad(model, feature_extracting):
 
 model_name = "slow_r50"
 num_classes = 2
-batch_size = 8
-num_epochs = 15
+# batch_size = 8
+num_epochs = 10
 feature_extract = True
 
 
@@ -212,7 +227,7 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
 model_ft, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
 
 # Print the model we just instantiated
-print(model_ft)
+# print(model_ft)
 
 
 def train_model(model, dataloader, criterion, optimizer, num_epochs=25, is_inception=False):
@@ -311,6 +326,79 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs=25, is_incep
     return model, val_acc_history
 
 
+def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_epochs=5):
+    since = time.time()
+    val_acc_history = []
+
+    best_model_wts = copy.deepcopy(model.state_dict())
+    best_acc = 0.0
+
+    for epoch in range(num_epochs):
+        print(f"Epoch : {epoch} of {num_epochs}")
+
+        # Each epoch has a training and validation phase
+
+        model.train()
+        running_loss = 0.0
+        running_corrects = 0
+        for inputs, labels in train_loader:
+            print(f"New training batch -> Inputs shape : {inputs.shape}, labels shape : {labels.shape}")
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+            # print(f"Shape inputs {inputs.shape}")
+            # print(f"Shape labels {labels.shape}")
+            with torch.set_grad_enabled(True):
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                _, preds = torch.max(outputs, 1)
+                print(f"Preds : {preds}")
+                # statistics
+
+                running_loss += loss.item() * inputs.size(0)
+                running_corrects += torch.sum(preds == labels.data)
+
+        epoch_loss = running_loss / len(train_loader.dataset)
+        epoch_acc = running_corrects.double() / len(train_loader.dataset)
+
+        print(f"Epoch loss (mean): {epoch_loss}, Epoch acc : {epoch_acc}")
+
+        # Evaluation
+        model.eval()
+        running_loss_val = 0.0
+        running_corrects_val = 0
+        with torch.inference_mode():
+            for inputs, labels in val_loader:
+                print(f"New evaluation batch -> Inputs shape : {inputs.shape}, labels shape : {labels.shape}")
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+                outputs = model(inputs)
+                loss_val = criterion(outputs, labels)
+                running_loss_val += loss_val.item() * inputs.size(0)
+                _, preds_val = torch.max(outputs, 1)
+                running_corrects_val += torch.sum(preds_val == labels)
+
+            epoch_loss_val = running_loss_val / len(val_loader.dataset)
+            epoch_acc_val = running_corrects_val / len(val_loader.dataset)
+            if epoch_acc_val > best_acc:
+                best_acc = epoch_acc_val
+                best_models_wts = copy.deepcopy(model.state_dict())
+            val_acc_history.append(epoch_acc_val)
+
+            # deep copy the model
+
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}'.format(best_acc))
+
+    # load best model weights
+    model.load_state_dict(best_model_wts)
+    return model, val_acc_history
+
 model_ft = model_ft.to(device)
 # Gather the parameters to be optimized/updated in this run. If we are
 #  finetuning we will be updating all parameters. However, if we are
@@ -335,8 +423,7 @@ optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
 
 loss = nn.CrossEntropyLoss()
 model_ft = model_ft.to(device)
-model_ft, hist = train_model(model_ft, data_loader, loss, optimizer_ft, num_epochs=num_epochs,
-                             is_inception=(model_name == "inception"))
+model_ft, hist = train_model_v2(model_ft, train_loader, val_loader, loss, optimizer_ft, num_epochs=num_epochs)
 
 '''
 # Load the example video
