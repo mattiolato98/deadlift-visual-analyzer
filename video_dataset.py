@@ -263,4 +263,8 @@ class ImglistToTensor(torch.nn.Module):
         Returns:
             tensor of size ``NUM_IMAGES x CHANNELS x HEIGHT x WIDTH``
         """
-        return torch.stack([transforms.functional.to_tensor(pic) for pic in img_list])
+        output = torch.stack([transforms.functional.to_tensor(pic) for pic in img_list])
+        print(output.shape)
+        output = torch.swapaxes(output, 0, 1)
+        print(output.shape)
+        return output
