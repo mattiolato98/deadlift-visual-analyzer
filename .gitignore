@@ -1,3 +1,4 @@
-Dataset
-Dataset_small
-
+/Dataset*
+deadlift_downscaled*
+checkpoint
+models

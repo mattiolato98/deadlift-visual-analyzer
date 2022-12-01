@@ -36,8 +36,8 @@ from typing import Dict
 import torch.optim as optim
 from torch import nn
 from pathlib import Path
-import datasets
-import transforms
+from video_dataset import VideoFrameDataset, ImglistToTensor
+
 '''
 ####################
 # SlowFast transform
@@ -124,7 +124,7 @@ transform = ApplyTransformToKey(
 # The duration of the input clip is also specific to the model.
 clip_duration = (num_frames * sampling_rate) / frames_per_second
 
-
+'''
 class DeadliftDataset(Dataset):
     def __init__(self, csv_file, **kwargs):
         # super().__init__(**kwargs)
@@ -157,6 +157,7 @@ class DeadliftDataset(Dataset):
         # sample = {'video' : video_data, 'label' : label }
 
         return video_data["video"], label
+    
 dataset_path = "Dataset"
 # dataset = "Dataset_small"
 # deadlift_dataset = DeadliftDataset(root=dataset_path,
@@ -165,7 +166,7 @@ dataset_path = "Dataset"
 deadlift_dataset  = datasets.VideoLabelDataset(
     dataset_path + "/dataset.csv",
     transform=torchvision.transforms.Compose([
-        transforms.VideoFilePathToTensor(max_len=None, fps=25, padding_mode='last'),
+        transforms.VideoFilePathToTensor(max_len=60, fps=25, padding_mode='last'),
         UniformTemporalSubsample(num_frames),
         Lambda(lambda x: x / 255.0),
         NormalizeVideo(mean, std),
@@ -175,7 +176,30 @@ deadlift_dataset  = datasets.VideoLabelDataset(
 
     ])
 )
+'''
+dataset_path = "Dataset_frames"
+preprocess = Compose(
+        [   ImglistToTensor(),  # list of PIL images to (FRAMES x CHANNELS x HEIGHT x WIDTH) tensor
+            # transforms.Resize(299),  # image batch, resize smaller edge to 299
+            # transforms.CenterCrop(299),
+            UniformTemporalSubsample(num_frames),
+            Lambda(lambda x: x / 255.0),
+            NormalizeVideo(mean, std),
+            RandomShortSideScale(min_size=256, max_size=320),
+            RandomCrop(224),
+            RandomHorizontalFlip(p=0.5)
+        ]
+    )
+deadlift_dataset = VideoFrameDataset(
+    root_path = dataset_path,
+    annotationfile_path = dataset_path+"/annotations.txt",
+    num_segments =4,
+    frames_per_segment=5,
+    imagefile_template='img_{:05d}.jpg',
+    transform=preprocess,
+    test_mode=False
 
+)
 dataset_size = len(deadlift_dataset)
 dataset_indices = list(range(dataset_size))
 np.random.shuffle(dataset_indices)
@@ -186,18 +210,19 @@ train_sampler = SubsetRandomSampler(train_idx)
 val_sampler = SubsetRandomSampler(val_idx)
 
 train_loader = torch.utils.data.DataLoader(
-    batch_size=8,
+    batch_size=2,
     dataset=deadlift_dataset,
-    sampler=train_sampler,
-    num_workers=4,
+    shuffle=True,
+    # sampler=train_sampler,
+    num_workers=0,
     pin_memory=True
 
 )
 val_loader = torch.utils.data.DataLoader(
     dataset=deadlift_dataset,
-    batch_size=8,
-    sampler=val_sampler,
-    num_workers=4,
+    batch_size=2,
+    shuffle = False,
+    num_workers=0,
     pin_memory=True)
 
 
