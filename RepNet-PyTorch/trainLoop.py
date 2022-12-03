@@ -1,34 +1,32 @@
-import os
-import math
-import time
-import torch
+import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
-from torch.utils.data import DataLoader, ConcatDataset
-from IPython.display import clear_output
-import torch.nn.functional as F
+import torch
 
-from Dataset import getCombinedDataset
+from matplotlib.lines import Line2D
+from torch.utils.data import DataLoader, ConcatDataset
+from tqdm import tqdm
+
 from Model import RepNet
 
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda" if use_cuda else "cpu")
 
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-#============metrics ==================
-def MAE(y, ypred) :
+
+# ============metrics ==================
+
+
+def MAE(y, ypred):
     """for period"""
     batch_size = y.shape[0]
     yarr = y.clone().detach().cpu().numpy()
     ypredarr = ypred.clone().detach().cpu().numpy()
-    
+
     ae = np.sum(np.absolute(yarr - ypredarr))
     mae = ae / yarr.flatten().shape[0]
     return mae
 
-def f1score(y, ypred) :
+
+def f1score(y, ypred):
     """for periodicity"""
     batch_size = y.shape[0]
     yarr = y.clone().detach().cpu().numpy()
@@ -38,12 +36,13 @@ def f1score(y, ypred) :
     recall = tp / (yarr.sum() + 1e-6)
     if precision + recall == 0:
         fscore = 0
-    else :
-        fscore = 2*precision*recall/(precision + recall)
+    else:
+        fscore = 2 * precision * recall / (precision + recall)
     return fscore
 
+
 def running_mean(x, N):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
+    cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 
@@ -52,12 +51,14 @@ def getPeriodicity(periodLength):
     periodicity = -torch.nn.functional.threshold(-periodicity, -1, -1)
     return periodicity
 
+
 def getCount(periodLength):
-    frac = 1/periodLength
+    frac = 1 / periodLength
     frac = torch.nan_to_num(frac, 0, 0, 0)
 
-    count = torch.sum(frac, dim = [1])
+    count = torch.sum(frac, dim=[1])
     return count
+
 
 def getStart(periodLength):
     tmp = periodLength.squeeze(2)
@@ -66,179 +67,174 @@ def getStart(periodLength):
     indices = torch.argmax(tmp2, 1, keepdim=True)
     return indices
 
-def training_loop(n_epochs,
-                  model,
-                  train_set,
-                  val_set,
-                  batch_size,
-                  lr = 6e-6,
-                  ckpt_name = 'ckpt',
-                  use_count_error = True,
-                  saveCkpt= True,
-                  train = True,
-                  validate = True,
-                  lastCkptPath = None):
 
-    
-    
-    prevEpoch = 0
-    trainLosses = []
-    valLosses = []
-    
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
+def training_loop(
+        epochs,
+        train_set,
+        val_set,
+        batch_size,
+        frame_per_video=64,
+        lr=6e-6,
+        ckpt_name='ckpt',
+        use_count_error=True,
+        save_ckpt=True,
+        validate=True,
+        checkpoint_path=None
+):
+    model = RepNet(frame_per_video)
+    model = model.to(DEVICE)
 
-    if lastCkptPath != None :
-        print("loading checkpoint")
-        checkpoint = torch.load(lastCkptPath)
-        prevEpoch = checkpoint['epoch']
-        trainLosses = checkpoint['trainLosses']
-        valLosses = checkpoint['valLosses']
+    loss_mae = torch.nn.SmoothL1Loss()
+    loss_bce = torch.nn.BCEWithLogitsLoss()
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
 
-        model.load_state_dict(checkpoint['state_dict'], strict = True)
-        
+    start_epoch = 0
+    train_losses = []
+    val_losses = []
+
+    if checkpoint_path:
+        print('Loading checkpoint ...')
+
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        
-        del checkpoint
-    
-        
-    model.to(device)
+
+        start_epoch = checkpoint['epoch'] + 1
+        train_losses = checkpoint['trainLosses']
+        val_losses = checkpoint['valLosses']
 
     for state in optimizer.state.values():
         for k, v in state.items():
             if isinstance(v, torch.Tensor):
-                state[k] = v.to(device)
-    
-    lossMAE = torch.nn.SmoothL1Loss()
-    lossBCE = torch.nn.BCEWithLogitsLoss()
-    train_loader = DataLoader(train_set, 
-                              batch_size=batch_size, 
-                              num_workers=0,
-                              shuffle = True)
-    
-    val_loader = DataLoader(val_set,
-                            batch_size = batch_size,
-                            num_workers=0,
-                            drop_last = False,
-                            shuffle = True)
-    
-    if validate and not train:
-        currEpoch = prevEpoch
-    else :
-        currEpoch = prevEpoch + 1
-        
-    for epoch in tqdm(range(currEpoch, n_epochs + currEpoch)):
-        #train loop
-        if train :
-            pbar = tqdm(train_loader, total = len(train_loader))
-            mae = 0
-            mae_count = 0
-            fscore = 0
-            i = 1
-            a=0
-            for X, y in pbar:
-                
-                torch.cuda.empty_cache()
-                model.train()
-                X = X.to(device).float()
-                y1 = y.to(device).float()
-                y2 = getPeriodicity(y1).to(device).float()
-                
-                y1pred, y2pred = model(X)
-                loss1 = lossMAE(y1pred, y1)
-                loss2 = lossBCE(y2pred, y2)
+                state[k] = v.to(DEVICE)
 
-                loss = loss1 + 5*loss2
+    train_loader = DataLoader(
+        train_set,
+        batch_size=batch_size,
+        num_workers=0,
+        shuffle=True
+    )
 
-                countpred = torch.sum((y2pred > 0) / (y1pred + 1e-1), 1)
-                count = torch.sum((y2 > 0) / (y1 + 1e-1), 1)
-                loss3 = torch.sum(torch.div(torch.abs(countpred - count), (count + 1e-1)))
+    val_loader = DataLoader(
+        val_set,
+        batch_size=batch_size,
+        num_workers=0,
+        drop_last=False,
+        shuffle=True
+    )
 
-                if use_count_error:    
-                    loss += loss3
-                
-                optimizer.zero_grad()
-                loss.backward()
-                               
-                optimizer.step()
-                train_loss = loss.item()
-                trainLosses.append(train_loss)
-                mae += loss1.item()
-                mae_count += loss3.item()
-                
-                del X, y, y1, y2, y1pred, y2pred
-                i+=1
-                pbar.set_postfix({'Epoch': epoch,
-                                  'MAE_period': (mae/i),
-                                  'MAE_count' : (mae_count/i),
-                                  'Mean Tr Loss':np.mean(trainLosses[-i+1:])})
-                
-                
+    for epoch in tqdm(range(start_epoch, epochs + start_epoch)):
+        mae = 0
+        mae_count = 0
+        i = 1
+
+        model.train()
+        train_progress = tqdm(train_loader, total=len(train_loader))
+        for inputs, labels in train_progress:
+            torch.cuda.empty_cache()
+
+            inputs = inputs.to(DEVICE).float()
+            y1 = labels.to(DEVICE).float()
+            y2 = getPeriodicity(y1).to(DEVICE).float()
+
+            optimizer.zero_grad()
+
+            outputs1, outputs2 = model(inputs)
+            loss1 = loss_mae(outputs1, y1)
+            loss2 = loss_bce(outputs2, y2)
+
+            loss = loss1 + 5 * loss2
+
+            count_prediction = torch.sum((y2pred > 0) / (y1pred + 1e-1), 1)
+            count = torch.sum((y2 > 0) / (y1 + 1e-1), 1)
+            loss3 = torch.sum(torch.div(torch.abs(count_prediction - count), (count + 1e-1)))
+
+            if use_count_error:
+                loss += loss3
+
+            loss.backward()
+            optimizer.step()
+
+            train_loss = loss.item()
+
+            train_losses.append(train_loss)
+            mae += loss1.item()
+            mae_count += loss3.item()
+
+            i += 1
+
+            train_progress.set_postfix({
+                'epoch': epoch,
+                'mae_period': (mae / i),
+                'mae_count': (mae_count / i),
+                'mean_training_loss': np.mean(train_losses[-i + 1:]),
+            })
+
         if validate:
-            #validation loop
+            model.eval()
             with torch.no_grad():
                 mae = 0
                 mae_count = 0
-                fscore = 0
                 i = 1
-                pbar = tqdm(val_loader, total = len(val_loader))
+                progress_bar = tqdm(val_loader, total=len(val_loader))
 
-                for X, y in pbar:
-
+                for inputs, labels in progress_bar:
                     torch.cuda.empty_cache()
-                    model.eval()
-                    X = X.to(device).float()
-                    y1 = y.to(device).float()
-                    y2 = getPeriodicity(y1).to(device).float()
-                    
-                    y1pred, y2pred = model(X)
-                    loss1 = lossMAE(y1pred, y1)
-                    loss2 = lossBCE(y2pred, y2)
-                    
-                    loss = loss1 + loss2
-                    
-                    countpred = torch.sum((y2pred > 0) / (y1pred + 1e-1), 1)
-                    count = torch.sum((y2 > 0) / (y1 + 1e-1), 1)
-                    loss3 = lossMAE(countpred, count)
 
-                    if use_count_error:    
+                    model.eval()
+                    inputs = inputs.to(DEVICE).float()
+                    y1 = labels.to(DEVICE).float()
+                    y2 = getPeriodicity(y1).to(DEVICE).float()
+
+                    y1pred, y2pred = model(inputs)
+                    loss1 = loss_mae(y1pred, y1)
+                    loss2 = loss_bce(y2pred, y2)
+
+                    loss = loss1 + loss2
+
+                    count_prediction = torch.sum((y2pred > 0) / (y1pred + 1e-1), 1)
+                    count = torch.sum((y2 > 0) / (y1 + 1e-1), 1)
+                    loss3 = loss_mae(count_prediction, count)
+
+                    if use_count_error:
                         loss += loss3
-                                
+
                     val_loss = loss.item()
-                    valLosses.append(val_loss)
+                    val_losses.append(val_loss)
                     mae += loss1.item()
                     mae_count += loss3.item()
-                    
-                    del X, y, y1, y2, y1pred, y2pred
-                    i+=1
-                    pbar.set_postfix({'Epoch': epoch,
-                                    'MAE_period': (mae/i),
-                                    'MAE_count' : (mae_count/i),
-                                    'Mean Val Loss':np.mean(valLosses[-i+1:])})        
-        #save checkpoint
-        if saveCkpt:
+
+                    i += 1
+                    progress_bar.set_postfix({
+                        'epoch': epoch,
+                        'mae_period': (mae / i),
+                        'mae_count': (mae_count / i),
+                        'mean_validation_loss': np.mean(val_losses[-i + 1:])
+                    })
+
+        if save_ckpt:
             checkpoint = {
                 'epoch': epoch,
                 'state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'trainLosses' : trainLosses,
-                'valLosses' : valLosses
+                'trainLosses': train_losses,
+                'valLosses': val_losses
             }
-            torch.save(checkpoint, 
-                       'checkpoint/' + ckpt_name + str(epoch) + '.pt')
-        
-        #lr_scheduler.step()
+            torch.save(checkpoint, 'checkpoint/' + ckpt_name + str(epoch) + '.pt')
 
-    return trainLosses, valLosses
+    return train_losses, val_losses
 
 
 def trainTestSplit(dataset, TTR):
     trainDataset = torch.utils.data.Subset(dataset, range(0, int(TTR * len(dataset))))
-    valDataset = torch.utils.data.Subset(dataset, range(int(TTR*len(dataset)), len(dataset)))
+    valDataset = torch.utils.data.Subset(dataset, range(int(TTR * len(dataset)), len(dataset)))
     return trainDataset, valDataset
 
+
 def running_mean(x, N):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
+    cumsum = np.cumsum(np.insert(x, 0, 0))
     return (cumsum[N:] - cumsum[:-N]) / float(N)
+
 
 def plot_grad_flow(named_parameters):
     '''Plots the gradients flowing through different layers in the net during training.
@@ -246,27 +242,27 @@ def plot_grad_flow(named_parameters):
 
     Usage: Plug this function in Trainer class after loss.backwards() as 
     "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
-   
+
     ave_grads = []
-    max_grads= []
+    max_grads = []
     median_grads = []
     layers = []
     for n, p in named_parameters:
-        if(p.requires_grad) and (p.grad is not None) and ("bias" not in n):
+        if (p.requires_grad) and (p.grad is not None) and ("bias" not in n):
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
             max_grads.append(p.grad.abs().max())
             median_grads.append(p.grad.abs().median())
-            
+
     width = 0.3
     plt.bar(np.arange(len(max_grads)), max_grads, width, color="c")
     plt.bar(np.arange(len(max_grads)) + width, ave_grads, width, color="b")
-    plt.bar(np.arange(len(max_grads)) + 2*width, median_grads, width, color='r')
-    
-    plt.hlines(0, 0, len(ave_grads)+1, lw=2, color="k" )
-    plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+    plt.bar(np.arange(len(max_grads)) + 2 * width, median_grads, width, color='r')
+
+    plt.hlines(0, 0, len(ave_grads) + 1, lw=2, color="k")
+    plt.xticks(range(0, len(ave_grads), 1), layers, rotation="vertical")
     plt.xlim(left=0, right=len(ave_grads))
-    plt.ylim(bottom = -0.001, top=0.02) # zoom in on the lower gradient regions
+    plt.ylim(bottom=-0.001, top=0.02)  # zoom in on the lower gradient regions
     plt.xlabel("Layers")
     plt.ylabel("average gradient")
     plt.title("Gradient flow")
@@ -274,6 +270,3 @@ def plot_grad_flow(named_parameters):
     plt.legend([Line2D([0], [0], color="c", lw=4),
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="r", lw=4)], ['max-gradient', 'mean-gradient', 'median-gradient'])
-
-
-
