@@ -1,13 +1,7 @@
-import os
-import math
-import time
 import torch
 import random
-import numpy as np
-import pandas as pd
 
 from torch.utils.data import DataLoader, ConcatDataset, RandomSampler
-from IPython.display import clear_output
 
 
 from trainLoop import running_mean, training_loop, trainTestSplit, plot_grad_flow
@@ -23,6 +17,7 @@ device = torch.device("cuda" if use_cuda else "cpu")
 
 frame_per_vid = 64
 multiple = False
+
 '''
 deadlift_dataset = getCombinedDataset('deadlift_videos/repnet.csv',
                                    'deadlift_videos',
@@ -73,28 +68,22 @@ trainList = [trainDatasetS3] #, trainDatasetB]
 random.shuffle(trainList)
 trainDataset = ConcatDataset(trainList)
 
-model = RepNet(frame_per_vid)
-model = model.to(device)
-
 print("done")
 
 """Testing the training loop with sample datasets"""
- 
+
 sampleDatasetA = torch.utils.data.Subset(trainDataset, range(0, len(trainDataset)))
 # sampleDatasetB = torch.utils.data.Subset(testDataset, range(0,  len(testDataset)))
 
 print(len(sampleDatasetA))
 
-trLoss, valLoss = training_loop(  10,
-                                  model,
-                                  sampleDatasetA,
-                                  sampleDatasetA,
-                                  1,
-                                  6e-5,
-                                  'x3dbb',
-                                  use_count_error=True,
-                                  saveCkpt = 1,
-                                  train = 1,
-                                  validate = 1,
-                                  lastCkptPath = 'checkpoint/bce_mae_count_one_tr9.pt'
-                               )
+trLoss, valLoss = training_loop(
+    50,
+    sampleDatasetA,
+    sampleDatasetA,
+    1,
+    lr=6e-5,
+    ckpt_name='x3dbb',
+    use_count_error=True,
+    checkpoint_path='checkpoint/bce_mae_count_one_tr9.pt'
+)
