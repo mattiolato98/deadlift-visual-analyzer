@@ -54,8 +54,8 @@ class miniDataset(Dataset):
 
         a = randint(0, 64 - output_len)
         b = 64 - output_len - a
-        '''
-        randpath = random.choice(glob.glob('drive/MyDrive/PR_Repnet/synthvids/train*.mp4'))
+
+        randpath = random.choice(glob.glob('deadlift_downscaled_540p_reps/*'))
         randFrames = self.getFrames(randpath)
         newRandFrames = []
         for i in range(1, a + b + 1):
@@ -71,7 +71,7 @@ class miniDataset(Dataset):
             finalFrames = newRandFrames[:a]
             finalFrames.extend( newFrames )        
             finalFrames.extend( newRandFrames[a:] )
-        '''
+
         finalFrames = [newFrames[0] for i in range(a)]
         finalFrames.extend(newFrames)
         finalFrames.extend([newFrames[-1] for i in range(b)])
