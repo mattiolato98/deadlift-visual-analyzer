@@ -68,6 +68,25 @@ def getStart(periodLength):
     return indices
 
 
+def data_loaders(train_set, val_set, batch_size):
+    train_loader = DataLoader(
+        train_set,
+        batch_size=batch_size,
+        num_workers=0,
+        shuffle=True
+    )
+
+    val_loader = DataLoader(
+        val_set,
+        batch_size=batch_size,
+        num_workers=0,
+        drop_last=False,
+        shuffle=True
+    )
+
+    return train_loader, val_loader
+
+
 def training_loop(
         epochs,
         train_set,
@@ -108,20 +127,7 @@ def training_loop(
             if isinstance(v, torch.Tensor):
                 state[k] = v.to(DEVICE)
 
-    train_loader = DataLoader(
-        train_set,
-        batch_size=batch_size,
-        num_workers=0,
-        shuffle=True
-    )
-
-    val_loader = DataLoader(
-        val_set,
-        batch_size=batch_size,
-        num_workers=0,
-        drop_last=False,
-        shuffle=True
-    )
+    train_loader, val_loader = data_loaders(train_set, val_set, batch_size)
 
     for epoch in tqdm(range(start_epoch, epochs + start_epoch)):
         mae = 0
