@@ -1,8 +1,11 @@
 class RepetitionCounter(object):
     """Counts number of repetitions of given target pose class."""
 
-    def __init__(self, class_name, enter_threshold=6, exit_threshold=4):
+    def __init__(self, class_name, motion_frames=None, enter_threshold=6, exit_threshold=4):
         self._class_name = class_name
+
+        # Frames in which the barbell is moving
+        self._motion_frames = motion_frames
 
         # If pose counter passes given threshold, then we enter the pose.
         self._enter_threshold = enter_threshold
