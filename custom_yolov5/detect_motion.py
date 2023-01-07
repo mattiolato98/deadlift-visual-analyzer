@@ -26,8 +26,8 @@ Usage - formats:
 
 import argparse
 import os
-import sys
 import pickle
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -42,14 +42,15 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from models.common import DetectMultiBackend
 from utils.dataloaders import IMG_FORMATS, VID_FORMATS, LoadImages, LoadStreams
-from utils.general import (LOGGER, check_file, check_img_size, check_imshow, check_requirements, colorstr, cv2,
-                           increment_path, non_max_suppression, print_args, scale_boxes, strip_optimizer, xyxy2xywh)
+from utils.general import (
+    LOGGER, check_file, check_img_size, check_imshow, check_requirements, colorstr, cv2,
+    increment_path, non_max_suppression, print_args, scale_boxes, strip_optimizer, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
 
 
 @torch.no_grad()
-def run(
+def detect_motion_frames(
         weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         source=ROOT / 'data/images',  # file/dir/URL/glob, 0 for webcam
         dict_path=ROOT / 'motion.pickle',  # file/dir/URL/glob, 0 for webcam
@@ -143,8 +144,7 @@ def run(
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
 
         # Process predictions
-        
-        print(f'\n\nPRED: {pred}\n\n')
+
         for i, det in enumerate(pred):  # per image
             seen += 1
             if webcam:  # batch_size >= 1
@@ -199,10 +199,6 @@ def run(
                         elif abs(mean_y1 - y1) > threshold:
                             first_motion = True
                             barbell_motion[frame - 1] = True
-
-                        print(f'xyxy: {xyxy}')
-                        print(f'coords_list: {coord_list}')
-                        print(f'motion: {barbell_motion[frame - 1]}')
 
                         # df2 = pd.DataFrame({'xyxy': xyxy, 'coords': coord_list, 'motion': barbell_motion[frame - 1]})
                         # df.append(df2)
@@ -296,7 +292,7 @@ def parse_opt():
 
 def main(opt):
     check_requirements(exclude=('tensorboard', 'thop'))
-    run(**vars(opt))
+    detect_motion_frames(**vars(opt))
 
 
 if __name__ == "__main__":
