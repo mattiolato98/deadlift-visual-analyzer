@@ -139,6 +139,6 @@ class PoseClassifier(object):
 
         # Collect results into map: (class_name -> n_samples)
         class_names = [self._pose_samples[sample_idx].class_name for _, sample_idx in mean_dist_heap]
-        result = {class_name: class_names.count(class_name) for class_name in set(class_names)}
+        result = {class_name: (class_names.count(class_name) / len(class_names)) for class_name in set(class_names)}
 
         return result
