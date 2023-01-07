@@ -101,7 +101,8 @@ def process_video(video, motion_frames):
     video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    cap.set(cv2.CAP_PROP_POS_FRAMES, motion_frames[0])
+    if motion_frames is not None:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, motion_frames[0])
 
     pose_tracker = mp_pose.Pose(upper_body_only=False)
     pose_embedder = FullBodyPoseEmbedder()
@@ -157,7 +158,10 @@ if __name__ == '__main__':
                 source=video_path,
             )
             print(motion_frames)
-            repetitions = process_video(video_path, motion_frames)
+            repetitions = process_video(
+                video_path,
+                motion_frames if len(motion_frames > 0) else None
+            )
 
             df = pd.concat([
                 df, pd.DataFrame([[video, repetitions]], columns=['video', 'computed_repetitions'])
