@@ -78,6 +78,7 @@ def detect_motion_frames(
         hide_conf=False,  # hide confidences
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
+        save_dict=False,
 ):
     source = str(source)
     dict_path = str(dict_path)
@@ -112,13 +113,12 @@ def detect_motion_frames(
     # Run inference
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     seen, windows, dt = 0, [], [0.0, 0.0, 0.0]
-    
+
     threshold = 10
     mean_y1 = 0
     barbell_motion = {}
     coord_list = []
     first_motion = False
-    df = pd.DataFrame({'xyxy': [], 'coords': [], 'motion': []})
 
     for path, im, im0s, vid_cap, s in dataset:
         t1 = time_sync()
@@ -239,11 +239,11 @@ def detect_motion_frames(
 
         # Print time (inference-only)
         LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
-    with open(dict_path, 'wb') as handle:
-        pickle.dump(barbell_motion, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        print('Motion dict successfully saved')
 
-    df.to_csv('out.csv', sep=',', encoding='utf-8')
+    if save_dict:
+        with open(dict_path, 'wb') as handle:
+            pickle.dump(barbell_motion, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print('Motion dict successfully saved')
 
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
@@ -254,12 +254,15 @@ def detect_motion_frames(
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
 
+    return [frame for frame in barbell_motion.keys() if barbell_motion[frame]]
+
 
 def parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s.pt', help='model path(s)')
     parser.add_argument('--source', type=str, default=ROOT / 'data/images', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--dict-path', type=str, default=ROOT / 'motion.pickle', help='path where to save motion dict')
+    parser.add_argument('--save-dict', action='store_true', help='save detected motion frames as dictionary')
     parser.add_argument('--data', type=str, default=ROOT / 'data/coco128.yaml', help='(optional) dataset.yaml path')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
