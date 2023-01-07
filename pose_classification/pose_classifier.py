@@ -97,10 +97,10 @@ class PoseClassifier(object):
               'pushups_up': 2,
             }
         """
+
         # Check that provided and target poses have the same shape.
-        assert pose_landmarks.shape == (
-            (self._n_landmarks, self._n_dimensions), f'Unexpected shape: {pose_landmarks.shape}'
-        )
+        assert pose_landmarks.shape == (self._n_landmarks, self._n_dimensions), \
+            f'Unexpected shape: {pose_landmarks.shape}'
 
         # Get given pose embedding.
         pose_embedding = self._pose_embedder(pose_landmarks)
