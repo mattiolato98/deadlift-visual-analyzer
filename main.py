@@ -160,7 +160,7 @@ if __name__ == '__main__':
             print(motion_frames)
             repetitions = process_video(
                 video_path,
-                motion_frames if len(motion_frames > 0) else None
+                motion_frames if len(motion_frames) > 0 else None
             )
 
             df = pd.concat([
