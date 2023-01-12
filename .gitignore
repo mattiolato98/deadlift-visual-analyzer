@@ -6,3 +6,4 @@ checkpoint
 models
 .python-version
 rf_api_key.txt
+custom_yolov5/best.pt
