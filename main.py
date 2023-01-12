@@ -183,6 +183,27 @@ def test():
     errors_df.to_csv('errors.csv')
 
 
+def inference():
+    video_path = input("Enter the path of the video to classify: ")
+    if not os.path.isfile(video_path):
+        raise FileNotFoundError()
+
+    motion_frames = detect_motion_frames(
+        max_det=1,
+        weights=WEIGHTS_PATH,
+        conf_thres=0.4,
+        source=video_path,
+    )
+    print(motion_frames)
+
+    repetitions = process_video(
+        video_path,
+        motion_frames if len(motion_frames) > 0 else None
+    )
+
+    print(f'\nTotal video repetitions: {repetitions}\n\n')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -198,21 +219,4 @@ if __name__ == '__main__':
     if args.test:
         test()
     else:
-        video_path = input("Enter the path of the video to classify: ")
-        if not os.path.isfile(video_path):
-            raise FileNotFoundError()
-
-        motion_frames = detect_motion_frames(
-            max_det=1,
-            weights=WEIGHTS_PATH,
-            conf_thres=0.4,
-            source=video_path,
-        )
-        print(motion_frames)
-
-        repetitions = process_video(
-            video_path,
-            motion_frames if len(motion_frames) > 0 else None
-        )
-
-        print(f'\nTotal video repetitions: {repetitions}\n\n')
+        inference()
