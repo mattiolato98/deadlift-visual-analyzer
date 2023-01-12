@@ -25,6 +25,7 @@ GROUND_TRUTH_CSV = 'test/reps.csv'
 def count_repetitions(
         cap,
         video_n_frames,
+        motion_frames,
         pose_tracker,
         pose_classifier,
         pose_classification_filter,
@@ -125,8 +126,8 @@ def process_video(video, motion_frames):
     )
 
     total_repetitions = count_repetitions(
-        cap, video_n_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
-    )
+        cap, video_n_frames, motion_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
+    ) if motion_frames is not None else 0
 
     return total_repetitions
 
