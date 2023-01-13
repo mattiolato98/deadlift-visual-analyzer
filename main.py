@@ -25,18 +25,31 @@ GROUND_TRUTH_CSV = 'test/reps.csv'
 def count_repetitions(
         cap,
         video_n_frames,
+        video_fps,
+        video_width,
+        video_height,
         motion_frames,
         pose_tracker,
         pose_classifier,
         pose_classification_filter,
         repetition_counter):
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    print(video_fps)
+    print(type(video_fps))
+    out = cv2.VideoWriter('rep0.mp4', fourcc, video_fps, (video_width, video_height))
+
     old_reps = 0
     with tqdm.tqdm(total=video_n_frames, position=0, leave=True) as pbar:
-        while cap.isOpened() and cap.get(cv2.CAP_PROP_POS_FRAMES) != motion_frames[-1]:
+        for frame_number in motion_frames:
             # Get next frame of the video.
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
             ret, input_frame = cap.read()
+
             if not ret:
                 break
+
+            out.write(input_frame)
+
             # Run pose tracker.
             input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
             result = pose_tracker.process(image=input_frame)
@@ -71,6 +84,8 @@ def count_repetitions(
                 if repetitions_count > old_reps:
                     print(f'-\n--------------- Reps: {repetitions_count} ---------------\n')
                     old_reps = repetitions_count
+                    out.release()
+                    out = cv2.VideoWriter(f'rep{repetitions_count}.mp4', fourcc, video_fps, (video_width, video_height))
             else:
                 # No pose => no classification on current frame.
                 pose_classification = None
@@ -88,6 +103,7 @@ def count_repetitions(
 
     # Release MediaPipe resources.
     pose_tracker.close()
+    out.release()
 
     print(f'\n\nFINAL REPS: {repetition_counter.n_repeats}\n')
 
