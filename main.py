@@ -120,7 +120,8 @@ def process_video(video, motion_frames):
     video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     if motion_frames is not None:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, motion_frames[0])
+        motion_frames = extend_motion_frames(motion_frames, video_fps)
+        print(motion_frames)
 
     pose_tracker = mp_pose.Pose(upper_body_only=False)
     pose_embedder = FullBodyPoseEmbedder()
@@ -142,10 +143,22 @@ def process_video(video, motion_frames):
     )
 
     total_repetitions = count_repetitions(
-        cap, video_n_frames, motion_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
+        cap, video_n_frames, video_fps, video_width, video_height, motion_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
     ) if motion_frames is not None else 0
 
     return total_repetitions
+
+
+def extend_motion_frames(motion_frames, video_fps):
+    sec = int(video_fps) * 2
+
+    for idx, value in enumerate(motion_frames):
+        if value - motion_frames[idx - 1] > sec:
+            motion_frames.extend([i for i in range(value - sec, value)])
+
+    motion_frames.sort()
+
+    return motion_frames
 
 
 def check_errors(df):
