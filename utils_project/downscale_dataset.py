@@ -2,17 +2,17 @@ import os
 import subprocess
 cl = ["Bad"]
 
-new_dataset = os.getcwd() + f"/deadlift_downscaled_360p/"
-width = 480
-height = 360
+new_dataset = os.getcwd() + f"/Dataset_downscaled_720p/"
+width = 1280
+height = 720
 if not os.path.exists(new_dataset):
     os.mkdir(new_dataset)
 for label in cl:
-    directory = os.getcwd() + f"/test/{label}"
+    directory = os.getcwd() + f"/Dataset_2/{label}"
     for filename in os.listdir(directory):
         f = os.path.join(directory, filename)
         if os.path.isfile(f):
-            # os.chdir(new_dataset)
+            os.chdir(new_dataset)
             new_dir = os.path.join(new_dataset, label)
             if not os.path.exists(new_dir):
                 os.mkdir(new_dir)

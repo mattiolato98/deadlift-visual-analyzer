@@ -22,7 +22,7 @@ class RepetitionCounter(object):
         return self._n_repeats
 
     def __call__(self, pose_classification, frame_number=None):
-        """Counts number of repetitions happend until given frame.
+        """Counts number of repetitions happened until given frame.
 
         We use two thresholds. First you need to go above the higher one to enter
         the pose, and then you need to go below the lower one to exit it. Difference
@@ -49,6 +49,9 @@ class RepetitionCounter(object):
             # pose_confidence is greater than _enter_threshold and that the
             # barbell is moving in the current frame. Otherwise, check only
             # for the threshold.
+
+            # ---------
+            
             if self._motion_frames is not None and frame_number is not None:
                 return (pose_confidence > self._enter_threshold and
                         frame_number in self._motion_frames)
