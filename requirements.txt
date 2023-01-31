@@ -3,6 +3,7 @@ mediapipe==0.8.3
 numpy==1.20.3
 opencv-python==4.5.1.48
 pillow==8.1.0
+pytorchvideo==0.1.5
 torch==1.13.0
 torchvision==0.14.0
 tqdm==4.56.0
