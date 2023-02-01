@@ -15,6 +15,7 @@ from pose_classification.ema_smoothing import EMADictSmoothing
 from pose_classification.pose_classifier import PoseClassifier
 from pose_classification.pose_embedder import FullBodyPoseEmbedder
 from rep_counter.repetition_counter import RepetitionCounter
+from slowfast.slowfast import inference as slowfast_inference
 
 WEIGHTS_PATH = 'custom_yolov5/best.pt'
 PATH = 'test/videos/'
@@ -155,7 +156,6 @@ def process_video(video, motion_frames):
 
     if motion_frames is not None:
         motion_frames = extend_motion_frames(motion_frames, video_fps)
-        print(motion_frames)
 
     pose_tracker = mp_pose.Pose(upper_body_only=False)
     pose_embedder = FullBodyPoseEmbedder()
@@ -176,11 +176,11 @@ def process_video(video, motion_frames):
         exit_threshold=0.49
     )
 
-    total_repetitions = count_repetitions(
+    reps_frames, total_repetitions = count_repetitions(
         cap, video_n_frames, video_fps, video_width, video_height, motion_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
     ) if motion_frames is not None else 0
 
-    return total_repetitions
+    return video_fps, reps_frames, total_repetitions
 
 
 def extend_motion_frames(motion_frames, video_fps):
@@ -222,15 +222,14 @@ def test():
                 conf_thres=0.4,
                 source=video_path,
             )
-            print(motion_frames)
 
-            repetitions = process_video(
+            _, reps_frames, total_repetitions = process_video(
                 video_path,
                 motion_frames if len(motion_frames) > 0 else None
             )
 
             df = pd.concat([
-                df, pd.DataFrame([[video, repetitions]], columns=['video', 'computed_repetitions'])
+                df, pd.DataFrame([[video, total_repetitions]], columns=['video', 'computed_repetitions'])
             ])
 
             print(f'Video {current}/{total_videos} done.\n')
@@ -257,14 +256,15 @@ def inference():
         conf_thres=0.4,
         source=video_path,
     )
-    print(motion_frames)
 
-    repetitions = process_video(
+    fps, reps_frames, total_repetitions = process_video(
         video_path,
         motion_frames if len(motion_frames) > 0 else None
     )
 
-    print(f'\nTotal video repetitions: {repetitions}\n\n')
+    reps_range = [(frames[0] / fps, frames[-1] / fps) for frames in reps_frames.values()]
+
+    slowfast_inference(video_path, reps_range)
 
 
 if __name__ == '__main__':
@@ -283,3 +283,4 @@ if __name__ == '__main__':
         test()
     else:
         inference()
+
