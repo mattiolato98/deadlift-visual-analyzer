@@ -42,6 +42,11 @@ import pickle
 # SlowFast transform
 ####################
 
+
+model_name = "slowfast_r101"
+num_classes = 2
+feature_extract = True
+
 side_size = 256
 mean = [0.45, 0.45, 0.45]
 std = [0.225, 0.225, 0.225]
@@ -51,6 +56,8 @@ num_frames = 32
 sampling_rate = 2
 frames_per_second = 30
 alpha = 4
+
+weights = 'slowfast/slowfast_r101_v1_100ep_540p_final.pth'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -365,7 +372,7 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
     #     b = pickle.load(handle)
 
 
-def inference():
+def inference(video_path, reps_range):
     test_transform = ApplyTransformToKey(
         key="video",
         transform=Compose(
@@ -376,86 +383,56 @@ def inference():
                 ShortSideScale(
                     size=side_size
                 ),
-                CenterCropVideo(crop_size)
+                CenterCropVideo(crop_size),
+                PackPathway(),
             ]
         ),
     )
-    # Load the example video
-    video_path = "/content/gdrive/MyDrive/Dataset/Test/02.mp4"
-
-    # Select the duration of the clip to load by specifying the start and end duration
-    # The start_sec should correspond to where the action occurs in the video
-    start_sec = 0
-    end_sec = start_sec + clip_duration
+    model, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
+    model.load_state_dict(torch.load(weights, map_location=torch.device('cpu')))
 
     # Initialize an EncodedVideo helper class
     video = EncodedVideo.from_path(video_path)
 
-    # Load the desired clip
-    video_data = video.get_clip(start_sec=start_sec, end_sec=end_sec)
+    batch_slow = torch.empty(0)
+    batch_slow = batch_slow.to(device)
+    batch_fast = torch.empty(0)
+    batch_fast = batch_fast.to(device)
 
-    # Apply a transform to normalize the video input
-    video_data = test_transform(video_data)
-    # Move the inputs to the desired device
-    inputs = video_data["video"]
-    print(inputs.shape)
-    inputs = [i.to(device) for i in inputs]
-    # inputs = inputs.unsqueeze(0)
-    model_ft.eval()
-    post_act = torch.nn.Sigmoid()
-    preds = model_ft(inputs)
-    preds = post_act(preds)
-    pred_classes = preds.topk(k=1).indices
-    if pred_classes.item() == 0:
-        pred_label = "Bad"
-    else:
-        pred_label = "Good"
-
-    print(f"Pred : {pred_classes}, {pred_label} ")
-
-    test_transform = ApplyTransformToKey(
-        key="video",
-        transform=Compose(
-            [
-                UniformTemporalSubsample(num_frames),
-                Lambda(lambda x: x / 255.0),
-                NormalizeVideo(mean, std),
-                ShortSideScale(
-                    size=side_size
-                ),
-                CenterCropVideo(crop_size)
-            ]
-        ),
-    )
-    # Load the example video
-    video_path = ""
-    video = EncodedVideo.from_path(video_path)
-    predictions = torch.empty(0)
-    for start_sec, end_sec in timestamp_list:
+    for start_sec, end_sec in reps_range:
         # Load the desired clip
         video_data = video.get_clip(start_sec=start_sec, end_sec=end_sec)
 
         # Apply a transform to normalize the video input
         video_data = test_transform(video_data)
+
         # Move the inputs to the desired device
         inputs = video_data["video"]
         inputs = [i.to(device) for i in inputs]
 
-        model_ft.eval()
-        post_act = torch.nn.Sigmoid()
-        preds = model_ft(inputs)
-        preds = post_act(preds)
-        pred_classes = preds.topk(k=1).indices
-        predictions.add(pred_classes.item())
+        batch_slow = torch.cat((batch_slow, inputs[0].unsqueeze(0)), 0)
+        batch_fast = torch.cat((batch_fast, inputs[1].unsqueeze(0)), 0)
+
+    final_batch = [batch_slow, batch_fast]
+
+    model.eval()
+
+    post_act = torch.nn.Sigmoid()
+    preds = model(final_batch)
+    preds = post_act(preds)
+    pred_classes = preds.topk(k=1).indices
+
+    #
+    # if pred_classes.item() == 0:
+    #     pred_label = "Bad"
+    # else:
+    #     pred_label = "Good"
+
+    print(f"Pred : {pred_classes}")
 
 
 if __name__ == '__main__':
-
-    model_name = "slowfast_r101"
-    num_classes = 2
-
     num_epochs = 200
-    feature_extract = True
     # Initialize the model for this run
     model_ft, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
 
