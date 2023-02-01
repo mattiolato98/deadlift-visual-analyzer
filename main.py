@@ -103,11 +103,40 @@ def count_repetitions(
 
     # Release MediaPipe resources.
     pose_tracker.close()
-    out.release()
+    # out.release()
 
-    print(f'\n\nFINAL REPS: {repetition_counter.n_repeats}\n')
+    # Remove gaps in a repetition list of frames. A single repetition must not contain gaps.
+    reps = remove_gaps(reps, video_fps)
 
-    return repetition_counter.n_repeats
+    print(f'\n\nTotal video repetitions: {repetition_counter.n_repeats}\n')
+
+    return reps, repetition_counter.n_repeats
+
+
+def remove_gaps(rep_dict, fps):
+    """Removes gaps in frames in a rep.
+    A gap is defined as more than 1 * fps distance between two list elements.
+
+    How it works:
+        At first, split the list containing a single rep frames in more lists without gaps, for each rep.
+        Then, it keeps the longest list for each rep.
+
+    e.g. frames of second rep = [100, 101, 102, 133, 134, 135, 136] with fps = 30
+         cleaned rep list becomes = [133, 134, 135, 136]
+    """
+    max_gap = fps
+    cleaned_reps = defaultdict(list)
+
+    for rep, frames in rep_dict.items():
+        count = 0
+        results = defaultdict(list)
+        for idx, elem in enumerate(frames):
+            if idx != 0 and elem - frames[idx - 1] > max_gap:
+                count += 1
+            results[count].append(elem)
+        cleaned_reps[rep].extend(max(results.values(), key=len))
+
+    return cleaned_reps
 
 
 def process_video(video, motion_frames):
