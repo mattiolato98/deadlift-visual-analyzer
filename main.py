@@ -1,5 +1,6 @@
 import argparse
 import os
+from collections import defaultdict
 
 import cv2
 import numpy as np
@@ -34,13 +35,14 @@ def count_repetitions(
         pose_classification_filter,
         repetition_counter):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    print(video_fps)
-    print(type(video_fps))
-    out = cv2.VideoWriter('rep0.mp4', fourcc, video_fps, (video_width, video_height))
+
+    # out = cv2.VideoWriter('rep0.mp4', fourcc, video_fps, (video_width, video_height))
+    reps = defaultdict(list)
 
     old_reps = 0
+    start_frame_idx = 0
     with tqdm.tqdm(total=video_n_frames, position=0, leave=True) as pbar:
-        for frame_number in motion_frames:
+        for idx, frame_number in enumerate(motion_frames):
             # Get next frame of the video.
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
             ret, input_frame = cap.read()
@@ -48,7 +50,7 @@ def count_repetitions(
             if not ret:
                 break
 
-            out.write(input_frame)
+            # out.write(input_frame)
 
             # Run pose tracker.
             input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
@@ -83,9 +85,12 @@ def count_repetitions(
 
                 if repetitions_count > old_reps:
                     print(f'-\n--------------- Reps: {repetitions_count} ---------------\n')
+                    reps[repetitions_count - 1].extend(motion_frames[start_frame_idx:idx+1])
+                    start_frame_idx = idx + 1
+
                     old_reps = repetitions_count
-                    out.release()
-                    out = cv2.VideoWriter(f'rep{repetitions_count}.mp4', fourcc, video_fps, (video_width, video_height))
+                    # out.release()
+                    # out = cv2.VideoWriter(f'rep{repetitions_count}.mp4', fourcc, video_fps, (video_width, video_height))
             else:
                 # No pose => no classification on current frame.
                 pose_classification = None
