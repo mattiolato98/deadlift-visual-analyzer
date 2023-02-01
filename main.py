@@ -184,6 +184,10 @@ def process_video(video, motion_frames):
 
 
 def extend_motion_frames(motion_frames, video_fps):
+    """Extends motion_frames list, adding 2 * fps frame values before each gap.
+    Since motion frames are ideally recorded when the barbell is moving, then it is necessary to
+    go back of a small amount of frames to catch the start of a repetition.
+    """
     sec = int(video_fps) * 2
 
     for idx, value in enumerate(motion_frames):
