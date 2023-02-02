@@ -249,8 +249,7 @@ def test():
     errors_df.to_csv('errors.csv')
 
 
-def inference():
-    video_path = input("Enter the path of the video to classify: ")
+def inference(video_path):
     if not os.path.isfile(video_path):
         raise FileNotFoundError()
 
@@ -286,5 +285,5 @@ if __name__ == '__main__':
     if args.test:
         test()
     else:
-        inference()
-
+        video_path = input("Enter the path of the video to classify: ")
+        inference(video_path)
