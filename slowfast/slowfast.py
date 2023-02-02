@@ -429,6 +429,7 @@ def inference(video_path, reps_range):
     #     pred_label = "Good"
 
     print(f"Pred : {pred_classes}")
+    return pred_classes
 
 
 if __name__ == '__main__':

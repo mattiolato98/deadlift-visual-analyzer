@@ -267,7 +267,11 @@ def inference(video_path):
 
     reps_range = [(frames[0] / fps, frames[-1] / fps) for frames in reps_frames.values()]
 
-    slowfast_inference(video_path, reps_range)
+    print(reps_range)
+
+    preds = slowfast_inference(video_path, reps_range) if len(reps_range) > 0 else 'No motion frames'
+
+    return preds
 
 
 if __name__ == '__main__':
