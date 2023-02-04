@@ -57,7 +57,7 @@ sampling_rate = 2
 frames_per_second = 30
 alpha = 4
 
-weights = 'slowfast/slowfast_r101_v1_100ep_540p_final.pth'
+weights = 'slowfast/slowfast_r101_v1_100epochs.pth'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -428,8 +428,23 @@ def inference(video_path, reps_range):
     # else:
     #     pred_label = "Good"
 
-    print(f"Pred : {pred_classes}")
-    return pred_classes
+    # print(f"Pred : {pred_classes}")
+
+    # From tensor to list
+    pred_classes = pred_classes.tolist()
+
+    # From list of lists to single list
+    final_predictions = []
+    # for elem in pred_classes:
+    #     if type(elem) is list:
+    #         for item in elem:
+    #             final_predictions.append(item)
+    #     else:
+    #         final_predictions.append(elem)
+
+    final_predictions = [item in sublist for sublist in pred_classes for item in sublist]
+
+    return final_predictions
 
 
 if __name__ == '__main__':
@@ -472,7 +487,7 @@ if __name__ == '__main__':
     model_name = f"{saving_model_name}.pth"
     model_save_path = model_path / model_name
 
-    dataset = "Dataset_downscaled_720p"
+    dataset = "Dataset_downscaled_540p"
 
     train_loader, val_loader = split_dataset(dataset, batch_size=16, transform=transform)
 
