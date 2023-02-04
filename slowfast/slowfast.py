@@ -57,9 +57,10 @@ sampling_rate = 2
 frames_per_second = 30
 alpha = 4
 
-weights = 'slowfast/slowfast_r101_v1_100epochs.pth'
+weights = 'custom_weights/slowfast_r101_v1_100epochs.pth'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class PackPathway(torch.nn.Module):
     """
@@ -299,13 +300,13 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
 
     print(f"Saving model parameters to {model_save_path}")
     torch.save(obj=model_ft.state_dict(), f=model_save_path)
-
+    print("Parameters successfully saved")
     return model, val_acc_history
 
 
 def split_dataset(dataset_name, batch_size=8,transform=None ):
-    dataset = os.getcwd() + f"/{dataset_name}"
-    deadlift_dataset = DeadliftDataset(root=dataset, csv_file=dataset + "/dataset.csv", transform=transform)
+    dataset = Path(os.getcwd()) / f"{dataset_name}"
+    deadlift_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "dataset.csv", transform=transform)
 
     dataset_size = len(deadlift_dataset)
 
@@ -344,13 +345,11 @@ def split_dataset(dataset_name, batch_size=8,transform=None ):
     return train_loader, val_loader
 
 
-def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path):
+def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path, saving_model_name):
     # Load best model's parameters
     model_v1, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
     model_v1.load_state_dict(torch.load(model_save_path))
 
-    print(num_epochs)
-    print(torch.tensor(train_loss_values).shape)
 
     '''
     plt.plot(epoch_count, torch.tensor(train_loss_values).numpy(), label="Train loss")
@@ -361,12 +360,13 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
     plt.legend();
     '''
 
-
-    path = os.getcwd()+f"/Deadlift_models/{saving_model_name}.pickle"
+    print("Saving training stats....")
+    path = Path(os.getcwd())\
+           / f"Deadlift_models/{saving_model_name}.pickle"
     save_object = (train_loss_values, val_loss_values)
     with open(path, 'wb') as handle:
         pickle.dump(save_object, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+    print("Training statistics successfully saved")
 
     # with open('filename.pickle', 'rb') as handle:
     #     b = pickle.load(handle)
@@ -389,7 +389,7 @@ def inference(video_path, reps_range):
         ),
     )
     model, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
-    model.load_state_dict(torch.load(weights, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=torch.device('cpu')))
 
     # Initialize an EncodedVideo helper class
     video = EncodedVideo.from_path(video_path)
@@ -448,10 +448,20 @@ def inference(video_path, reps_range):
 
 
 if __name__ == '__main__':
+    project_path = Path(os.getcwd())
     num_epochs = 200
+    saving_model_name = "slowfast_r101_v1_100+200ep_540p_final"
+    loading_model_name = "slowfast_r101_v1_100ep_540p_final"
     # Initialize the model for this run
     model_ft, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
 
+    model_path = project_path / "Deadlift_models/"
+    model_path.mkdir(parents=True, exist_ok=True)
+    model_load_name = f"{loading_model_name}.pth"
+    model_load_path = model_path / model_load_name
+
+    model_ft.load_state_dict(torch.load(model_load_path))
+    print("Custom weights successfully loaded")
     # Print the model we just instantiated
     # print(model_ft)
 
@@ -477,15 +487,14 @@ if __name__ == '__main__':
     # Observe that all parameters are being optimized
     optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
 
-    saving_model_name = "slowfast_r101_v1_200epochs_final"
+
     train_loss_values = []
     val_loss_values = []
     epoch_count = []
 
-    model_path = Path(os.getcwd()+"/Deadlift_models/")
-    model_path.mkdir(parents=True, exist_ok=True)
-    model_name = f"{saving_model_name}.pth"
-    model_save_path = model_path / model_name
+
+    model_save_name = f"{saving_model_name}.pth"
+    model_save_path = model_path / model_save_name
 
     dataset = "Dataset_downscaled_540p"
 
@@ -495,6 +504,6 @@ if __name__ == '__main__':
     model_ft = model_ft.to(device)
     model_ft, hist = train_model_v2(model_ft, train_loader, val_loader, loss_fn, optimizer_ft, num_epochs=num_epochs)
 
-    model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path)
+    model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path, saving_model_name)
 
     # inference()

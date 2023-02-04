@@ -1,21 +1,21 @@
 import os
 from collections import defaultdict
 
-from main import inference
+from main import inference, show_results
 
 PATH = 'test/videos/'
 
 
 if __name__ == '__main__':
-    results = defaultdict(list)
+    # results = defaultdict(list)
+    results = {}
     for idx, filename in enumerate(os.listdir('test/videos')):
         if os.path.isfile(f'{os.getcwd()}/{PATH}{filename}'):
             print(f'\n{idx + 1}) Processing {filename}')
 
             predictions = inference(f'{PATH}{filename}')
-            results[filename].append(predictions)
+            # results[filename].append(predictions)
+            results[filename] = predictions
 
-            print(f'\n{idx + 1}) {filename} DONE.\n\n')
-            print(results)
-
-    print(results)
+    for video in results:
+        show_results(video, results[video])

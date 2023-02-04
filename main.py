@@ -18,7 +18,7 @@ from pose_classification.pose_embedder import FullBodyPoseEmbedder
 from rep_counter.repetition_counter import RepetitionCounter
 from slowfast.slowfast import inference as slowfast_inference
 
-WEIGHTS_PATH = 'custom_yolov5/best.pt'
+WEIGHTS_PATH = 'custom_weights/best.pt'
 PATH = 'test/videos/'
 CLASS_NAME = 'deadlift_up'
 POSE_SAMPLES_PATH = 'deadlift_poses'

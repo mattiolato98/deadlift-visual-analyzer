@@ -7,5 +7,7 @@ checkpoint
 models
 .python-version
 rf_api_key.txt
-custom_yolov5/best.pt
 custom_yolov5/runs/
+custom_weights/
+Deadlift_models
+
