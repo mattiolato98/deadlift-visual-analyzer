@@ -8,6 +8,7 @@ import pandas as pd
 import tqdm
 
 from custom_yolov5.detect_motion import detect_motion_frames
+from custom_yolov5.detect_motion import detect_motion_frames
 from mediapipe.python.solutions import pose as mp_pose
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 
@@ -157,7 +158,7 @@ def process_video(video, motion_frames):
     if motion_frames is not None:
         motion_frames = extend_motion_frames(motion_frames, video_fps)
 
-    pose_tracker = mp_pose.Pose(upper_body_only=False)
+    pose_tracker = mp_pose.Pose()
     pose_embedder = FullBodyPoseEmbedder()
     pose_classifier = PoseClassifier(
         pose_samples_folder=POSE_SAMPLES_PATH,
@@ -274,6 +275,14 @@ def inference(video_path):
     return preds
 
 
+def show_results(filename, predictions):
+    print(f'Processing of {filename} completed')
+    print(f"Total repetitions : {len(predictions)}")
+    for idx, pred in enumerate(predictions):
+        print(f"Repetition number {idx + 1} of {len(predictions)} : judged ", "Good" if pred else "Bad")
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -290,4 +299,5 @@ if __name__ == '__main__':
         test()
     else:
         video_path = input("Enter the path of the video to classify: ")
-        inference(video_path)
+        preds = inference(video_path)
+        show_results(video_path, preds)
