@@ -25,7 +25,7 @@ POSE_SAMPLES_PATH = 'deadlift_poses'
 GROUND_TRUTH_CSV = 'test/reps.csv'
 
 
-def count_repetitions(
+def count_and_split_repetitions(
         cap,
         video_n_frames,
         video_fps,
@@ -177,7 +177,7 @@ def process_video(video, motion_frames):
         exit_threshold=0.49
     )
 
-    reps_frames, total_repetitions = count_repetitions(
+    reps_frames, total_repetitions = count_and_split_repetitions(
         cap, video_n_frames, video_fps, video_width, video_height, motion_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
     ) if motion_frames is not None else 0
 
