@@ -200,56 +200,6 @@ def extend_motion_frames(motion_frames, video_fps):
     return motion_frames
 
 
-def check_errors(df):
-    ground_truth_df = pd.read_csv(GROUND_TRUTH_CSV)
-
-    result = pd.concat([df, ground_truth_df]).groupby('video').sum()
-    result['diff'] = result['repetitions'] - result['computed_repetitions']
-
-    return result[result['diff'] != 0]
-
-
-def test():
-    df = pd.DataFrame(columns=['video', 'computed_repetitions'])
-
-    total_videos = sum(1 for video in os.listdir(PATH) if os.path.isfile(f'{os.getcwd()}/{PATH}{video}'))
-    current = 1
-
-    print(f'\nRunning test on {total_videos} videos...\n')
-
-    for video in os.listdir(PATH):
-        video_path = f'{os.getcwd()}/{PATH}{video}'
-        if os.path.isfile(video_path):
-            print(f'\n\U0001f3cb Starting processing {current}/{total_videos}: {video}\n\n')
-            motion_frames = detect_motion_frames(
-                max_det=1,
-                weights=WEIGHTS_PATH,
-                conf_thres=0.4,
-                source=video_path,
-            )
-
-            _, reps_frames, total_repetitions = process_video(
-                video_path,
-                motion_frames if len(motion_frames) > 0 else None
-            )
-
-            df = pd.concat([
-                df, pd.DataFrame([[video, total_repetitions]], columns=['video', 'computed_repetitions'])
-            ])
-
-            print(f'Video {current}/{total_videos} done.\n')
-            print(df)
-
-            print('\n\n-------------------------------------------------------------------------------------------\n\n')
-
-            current += 1
-
-    errors_df = check_errors(df)
-
-    df.to_csv('computed_reps.csv')
-    errors_df.to_csv('errors.csv')
-
-
 def inference(video_path, yolo_detection):
     if not os.path.isfile(video_path):
         raise FileNotFoundError()
@@ -293,26 +243,12 @@ def show_results(filename, predictions):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-t',
-        '--test',
-        action='store_true',
-        help='Run over a set of selected videos, and compare the result with the ground truth.'
-    )
-    args = parser.parse_args()
-
-    print('\n\n\U0001f680 Repetition counter by Gabriele Mattioli, Sara Morandi, Filippo Rinaldi\n')
-
-    if args.test:
-        test()
+    video_path = input("Enter the path of the video to classify: ")
+    automatic_detection = input("Do you want to use automatic detection (y/n)? ").lower()
+    if automatic_detection != 'n':
+        automatic_detection = True
     else:
-        video_path = input("Enter the path of the video to classify: ")
-        automatic_detection = input("Do you want to use automatic detection (y/n)? ").lower()
-        if automatic_detection != 'n':
-            automatic_detection = True
-        else:
-            automatic_detection = False
+        automatic_detection = False
 
-        preds = inference(video_path, automatic_detection)
-        show_results(video_path, preds)
+    preds = inference(video_path, automatic_detection)
+    show_results(video_path, preds)
