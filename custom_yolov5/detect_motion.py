@@ -117,6 +117,9 @@ def detect_motion_frames(
 
     motion_detector = MotionDetector()
     for path, im, im0s, vid_cap, s in dataset:
+        if vid_cap:  # video
+            fps = vid_cap.get(cv2.CAP_PROP_FPS)
+            motion_detector.fps = fps
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
         im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
