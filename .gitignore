@@ -11,3 +11,4 @@ custom_yolov5/runs/
 custom_weights/
 Deadlift_models/
 computed_reps.csv
+errors.csv
