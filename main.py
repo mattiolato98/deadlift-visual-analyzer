@@ -155,9 +155,6 @@ def process_video(video, motion_frames):
     video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    if motion_frames is not None:
-        motion_frames = extend_motion_frames(motion_frames, video_fps)
-
     pose_tracker = mp_pose.Pose()
     pose_embedder = FullBodyPoseEmbedder()
     pose_classifier = PoseClassifier(
@@ -182,22 +179,6 @@ def process_video(video, motion_frames):
     ) if motion_frames is not None else 0
 
     return video_fps, reps_frames, total_repetitions
-
-
-def extend_motion_frames(motion_frames, video_fps):
-    """Extends motion_frames list, adding 2 * fps frame values before each gap.
-    Since motion frames are ideally recorded when the barbell is moving, then it is necessary to
-    go back of a small amount of frames to catch the start of a repetition.
-    """
-    sec = int(video_fps) * 2
-
-    for idx, value in enumerate(motion_frames):
-        if value - motion_frames[idx - 1] > sec:
-            motion_frames.extend([i for i in range(value - sec, value)])
-
-    motion_frames.sort()
-
-    return motion_frames
 
 
 def inference(video_path, yolo_detection):
