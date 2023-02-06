@@ -9,5 +9,5 @@ models
 rf_api_key.txt
 custom_yolov5/runs/
 custom_weights/
-Deadlift_models
+Deadlift_models/
 
