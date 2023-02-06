@@ -8,7 +8,7 @@ import pandas as pd
 import tqdm
 
 from custom_yolov5.detect_motion import detect_motion_frames
-from custom_yolov5.detect_motion import detect_motion_frames
+from mean_shift.tracking import mean_shift_motion_frames
 from mediapipe.python.solutions import pose as mp_pose
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 
@@ -250,16 +250,25 @@ def test():
     errors_df.to_csv('errors.csv')
 
 
-def inference(video_path):
+def inference(video_path, yolo_detection):
     if not os.path.isfile(video_path):
         raise FileNotFoundError()
 
-    motion_frames = detect_motion_frames(
-        max_det=1,
-        weights=WEIGHTS_PATH,
-        conf_thres=0.4,
-        source=video_path,
-    )
+    if yolo_detection:
+        motion_frames = detect_motion_frames(
+            max_det=1,
+            weights=WEIGHTS_PATH,
+            conf_thres=0.4,
+            source=video_path,
+        )
+        if len(motion_frames) == 0:
+            manual = input("No barbell detected. Do you want to try with manual tracking (y/n)? ").lower()
+            if manual != 'n':
+                inference(video_path, False)
+            else:
+                return None
+    else:
+        motion_frames = mean_shift_motion_frames(video_path)
 
     fps, reps_frames, total_repetitions = process_video(
         video_path,
@@ -268,19 +277,19 @@ def inference(video_path):
 
     reps_range = [(frames[0] / fps, frames[-1] / fps) for frames in reps_frames.values()]
 
-    print(reps_range)
-
     preds = slowfast_inference(video_path, reps_range) if len(reps_range) > 0 else 'No motion frames'
 
     return preds
 
 
 def show_results(filename, predictions):
-    print(f'Processing of {filename} completed')
-    print(f"Total repetitions : {len(predictions)}")
-    for idx, pred in enumerate(predictions):
-        print(f"Repetition number {idx + 1} of {len(predictions)} : judged ", "Good" if pred else "Bad")
-
+    if predictions is None:
+        print('Nothing predicted')
+    else:
+        print(f'Processing of {filename} completed')
+        print(f"Total repetitions : {len(predictions)}")
+        for idx, pred in enumerate(predictions):
+            print(f"Repetition number {idx + 1} of {len(predictions)} : judged ", "Good" if pred else "Bad")
 
 
 if __name__ == '__main__':
@@ -299,5 +308,11 @@ if __name__ == '__main__':
         test()
     else:
         video_path = input("Enter the path of the video to classify: ")
-        preds = inference(video_path)
+        automatic_detection = input("Do you want to use automatic detection (y/n)? ").lower()
+        if automatic_detection != 'n':
+            automatic_detection = True
+        else:
+            automatic_detection = False
+
+        preds = inference(video_path, automatic_detection)
         show_results(video_path, preds)
