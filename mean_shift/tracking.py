@@ -10,6 +10,7 @@ def mean_shift_motion_frames(video_path):
     # take first frame of the video
     ret, frame = cap.read()
 
+    fps = cap.get(cv2.CAP_PROP_FPS)
     frame_height, frame_width = frame.shape[:2]
     frame = cv2.resize(frame, [frame_width//2, frame_height//2])
 
@@ -29,7 +30,7 @@ def mean_shift_motion_frames(video_path):
     term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
 
     frame_number = 1
-    motion_detector = MotionDetector(threshold=10, frame_number=frame_number)
+    motion_detector = MotionDetector(fps=fps, threshold=10, frame_number=frame_number)
     while True:
         ret, frame = cap.read()
         if not ret:
