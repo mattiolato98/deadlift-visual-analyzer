@@ -2,7 +2,8 @@ from statistics import mean
 
 
 class MotionDetector:
-    def __init__(self, threshold=10, frame_number=0):
+    def __init__(self, fps=30, threshold=10, frame_number=0):
+        self.fps = fps
         self.barbell_motion = []
         self.positions = []
         self.first_motion = False
