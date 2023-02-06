@@ -34,6 +34,8 @@ import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
 
+from motion_detection.motion_utils import MotionDetector
+
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
@@ -114,12 +116,7 @@ def detect_motion_frames(
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     seen, windows, dt = 0, [], [0.0, 0.0, 0.0]
 
-    threshold = 10
-    mean_y1 = 0
-    barbell_motion = {}
-    coord_list = []
-    first_motion = False
-
+    motion_detector = MotionDetector()
     for path, im, im0s, vid_cap, s in dataset:
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
@@ -182,28 +179,8 @@ def detect_motion_frames(
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
 
-                    x1 = int(xyxy[0].item())
                     y1 = int(xyxy[1].item())
-                    x2 = int(xyxy[2].item())
-                    y2 = int(xyxy[3].item())
-
-
-
-                    if mean_y1 != 0:
-                        barbell_motion[frame - 1] = False
-                        if abs(mean_y1 - y1) < threshold and not first_motion:
-                            coord_list.append((x1, y1, x2, y2))
-
-                            mean_y1 = round([sum(tup) for tup in zip(*coord_list)][1]/len(coord_list))
-
-                        elif abs(mean_y1 - y1) > threshold:
-                            first_motion = True
-                            barbell_motion[frame - 1] = True
-
-                        # df2 = pd.DataFrame({'xyxy': xyxy, 'coords': coord_list, 'motion': barbell_motion[frame - 1]})
-                        # df.append(df2)
-                    elif mean_y1 == 0:
-                        mean_y1 = y1  # first frame
+                    motion_detector.detect_motion(y1, frame)
 
                     if save_crop:
                         save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
@@ -254,7 +231,7 @@ def detect_motion_frames(
     if update:
         strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
 
-    return [frame for frame in barbell_motion.keys() if barbell_motion[frame]]
+    return motion_detector.motion_frames
 
 
 def parse_opt():
