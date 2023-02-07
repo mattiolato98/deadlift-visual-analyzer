@@ -1,3 +1,5 @@
+.DS_Store
+*.icloud
 __pycache__
 .idea/
 test/videos/
