@@ -13,7 +13,7 @@ if __name__ == '__main__':
         if os.path.isfile(f'{os.getcwd()}/{PATH}{filename}'):
             print(f'\n{idx + 1}) Processing {filename}')
 
-            predictions = inference(f'{PATH}{filename}')
+            predictions = inference(f'{PATH}{filename}', yolo_detection=True)
             # results[filename].append(predictions)
             results[filename] = predictions
 
