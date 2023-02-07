@@ -389,7 +389,7 @@ def inference(video_path, reps_range):
         ),
     )
     model, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
-    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=device))
 
     # Initialize an EncodedVideo helper class
     video = EncodedVideo.from_path(video_path)
