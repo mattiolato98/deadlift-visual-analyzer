@@ -38,6 +38,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from torch.utils.data import RandomSampler, SequentialSampler
 import pickle
+
 ####################
 # SlowFast transform
 ####################
@@ -169,9 +170,11 @@ def set_parameter_requires_grad(model, feature_extracting):
             param.requires_grad = False
 
 
-entrypoints = torch.hub.list('facebookresearch/pytorchvideo', force_reload=True)
-for model in entrypoints:
-    print(model)
+def available_models():
+    entrypoints = torch.hub.list('facebookresearch/pytorchvideo', force_reload=True)
+    for model in entrypoints:
+        print('Available pretrained pytorchvideo models:')
+        print(model)
 
 
 def initialize_model(model_name, num_classes, feature_extract, use_pretrained=True):
@@ -190,7 +193,6 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
         input_size = 256
 
 
-
     elif model_name == "slow_r50":
         """ Slow_R50
         """
@@ -199,7 +201,6 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
         num_ftrs = model_ft.blocks[5].proj.in_features
         model_ft.blocks[5].proj = nn.Linear(num_ftrs, num_classes)
         input_size = 224
-
 
     elif model_name == "slowfast_r101":
         model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slowfast_r101', pretrained=True)
@@ -304,12 +305,11 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
     return model, val_acc_history
 
 
-def split_dataset(dataset_name, batch_size=8,transform=None ):
+def split_dataset(dataset_name, batch_size=8, transform=None):
     dataset = Path(os.getcwd()) / f"{dataset_name}"
     deadlift_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "dataset.csv", transform=transform)
 
     dataset_size = len(deadlift_dataset)
-
 
     '''
     dataset_indices = list(range(dataset_size))
@@ -345,11 +345,11 @@ def split_dataset(dataset_name, batch_size=8,transform=None ):
     return train_loader, val_loader
 
 
-def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path, saving_model_name):
+def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path,
+                     saving_model_name):
     # Load best model's parameters
     model_v1, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
     model_v1.load_state_dict(torch.load(model_save_path))
-
 
     '''
     plt.plot(epoch_count, torch.tensor(train_loss_values).numpy(), label="Train loss")
@@ -361,7 +361,7 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
     '''
 
     print("Saving training stats....")
-    path = Path(os.getcwd())\
+    path = Path(os.getcwd()) \
            / f"Deadlift_models/{saving_model_name}.pickle"
     save_object = (train_loss_values, val_loss_values)
     with open(path, 'wb') as handle:
@@ -465,7 +465,6 @@ if __name__ == '__main__':
     # Print the model we just instantiated
     # print(model_ft)
 
-
     # Gather the parameters to be optimized/updated in this run. If we are
     #  finetuning we will be updating all parameters. However, if we are
     #  doing feature extract method, we will only update the parameters
@@ -487,11 +486,9 @@ if __name__ == '__main__':
     # Observe that all parameters are being optimized
     optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
 
-
     train_loss_values = []
     val_loss_values = []
     epoch_count = []
-
 
     model_save_name = f"{saving_model_name}.pth"
     model_save_path = model_path / model_save_name
@@ -504,6 +501,7 @@ if __name__ == '__main__':
     model_ft = model_ft.to(device)
     model_ft, hist = train_model_v2(model_ft, train_loader, val_loader, loss_fn, optimizer_ft, num_epochs=num_epochs)
 
-    model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path, saving_model_name)
+    model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path,
+                     saving_model_name)
 
     # inference()
