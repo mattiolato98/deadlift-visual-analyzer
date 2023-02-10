@@ -99,6 +99,23 @@ transform = ApplyTransformToKey(
         ]
     ),
 )
+
+test_transform = ApplyTransformToKey(
+        key="video",
+        transform=Compose(
+            [
+                UniformTemporalSubsample(num_frames),
+                Lambda(lambda x: x / 255.0),
+                NormalizeVideo(mean, std),
+                ShortSideScale(
+                    size=side_size
+                ),
+                CenterCropVideo(crop_size),
+                PackPathway(),
+            ]
+        ),
+    )
+
 '''
 ####################
 # Slow transform
@@ -172,8 +189,8 @@ def set_parameter_requires_grad(model, feature_extracting):
 
 def available_models():
     entrypoints = torch.hub.list('facebookresearch/pytorchvideo', force_reload=True)
+    print('Available pretrained pytorchvideo models:')
     for model in entrypoints:
-        print('Available pretrained pytorchvideo models:')
         print(model)
 
 
@@ -181,39 +198,37 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
     # Initialize these variables which will be set in this if statement. Each of these
     # variables is model specific.
     model_ft = None
-    input_size = 0
 
     if model_name == "slowfast_r50":
         """ Slowfast_R50 
         """
-        model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slowfast_r50', pretrained=True)
+        model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slowfast_r50', pretrained=use_pretrained)
         set_parameter_requires_grad(model_ft, feature_extract)
         num_ftrs = model_ft.blocks[6].proj.in_features
         model_ft.blocks[6].proj = nn.Linear(num_ftrs, num_classes)
-        input_size = 256
 
 
     elif model_name == "slow_r50":
         """ Slow_R50
         """
-        model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slow_r50', pretrained=True)
+        model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slow_r50', pretrained=use_pretrained)
         set_parameter_requires_grad(model_ft, feature_extract)
         num_ftrs = model_ft.blocks[5].proj.in_features
         model_ft.blocks[5].proj = nn.Linear(num_ftrs, num_classes)
-        input_size = 224
 
     elif model_name == "slowfast_r101":
-        model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slowfast_r101', pretrained=True)
+        """ Slowfast_R101
+                """
+        model_ft = torch.hub.load('facebookresearch/pytorchvideo', 'slowfast_r101', pretrained=use_pretrained)
         set_parameter_requires_grad(model_ft, feature_extract)
         num_ftrs = model_ft.blocks[6].proj.in_features
         model_ft.blocks[6].proj = nn.Linear(num_ftrs, num_classes)
-        input_size = 224
 
     else:
         print("Invalid model name, exiting...")
         exit()
 
-    return model_ft, input_size
+    return model_ft
 
 
 def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_epochs=5):
@@ -348,7 +363,7 @@ def split_dataset(dataset_name, batch_size=8, transform=None):
 def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path,
                      saving_model_name):
     # Load best model's parameters
-    model_v1, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
+    model_v1 = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
     model_v1.load_state_dict(torch.load(model_save_path))
 
     '''
@@ -373,23 +388,9 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
 
 
 def inference(video_path, reps_range):
-    test_transform = ApplyTransformToKey(
-        key="video",
-        transform=Compose(
-            [
-                UniformTemporalSubsample(num_frames),
-                Lambda(lambda x: x / 255.0),
-                NormalizeVideo(mean, std),
-                ShortSideScale(
-                    size=side_size
-                ),
-                CenterCropVideo(crop_size),
-                PackPathway(),
-            ]
-        ),
-    )
-    model, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
-    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=torch.device('cpu')))
+
+    model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
+    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=device))
 
     # Initialize an EncodedVideo helper class
     video = EncodedVideo.from_path(video_path)
@@ -447,13 +448,37 @@ def inference(video_path, reps_range):
     return final_predictions
 
 
+def evaluate_accuracy():
+    test_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "test.csv", transform=test_transform)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False)
+    # Evaluation
+    print(f"Accuracy test of the model")
+    model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
+    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=device))
+    model.to(device)
+    model.eval()
+    running_corrects = 0
+    with torch.inference_mode():
+        for inputs, labels in test_loader:
+            inputs = [i.to(device) for i in inputs]
+            labels = labels.to(device)
+            outputs = model(inputs)
+            _, preds_val = torch.max(outputs, 1)
+            print(f"Real labels : {labels} ")
+            print(f"Predictions : {preds_val} \n")
+            running_corrects += torch.sum(preds_val == labels)
+
+        accuracy = running_corrects / len(test_dataset)
+        print(f"Total accuracy on test set: {accuracy}")
+
+
 if __name__ == '__main__':
     project_path = Path(os.getcwd())
     num_epochs = 200
-    saving_model_name = "slowfast_r101_v1_100+200ep_540p_final"
-    loading_model_name = "slowfast_r101_v1_100ep_540p_final"
+    saving_model_name = "slowfast_r101_v1_200+200ep_540p_final"
+    loading_model_name = "slowfast_r101_v1_100+200ep_540p_final"
     # Initialize the model for this run
-    model_ft, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
+    model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
 
     model_path = project_path / "Deadlift_models/"
     model_path.mkdir(parents=True, exist_ok=True)
