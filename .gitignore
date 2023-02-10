@@ -1,5 +1,3 @@
-.DS_Store
-*.icloud
 __pycache__
 .idea/
 test/videos/
@@ -12,5 +10,4 @@ rf_api_key.txt
 custom_yolov5/runs/
 custom_weights/
 Deadlift_models/
-computed_reps.csv
-errors.csv
+
