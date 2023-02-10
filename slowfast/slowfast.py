@@ -386,7 +386,6 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
     # with open('filename.pickle', 'rb') as handle:
     #     b = pickle.load(handle)
 
-
 def inference(video_path, reps_range):
 
     model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
