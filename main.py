@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import tqdm
+import math
 
 from custom_yolov5.detect_motion import detect_motion_frames
 from mean_shift.tracking import mean_shift_motion_frames
@@ -114,6 +115,7 @@ def count_and_split_repetitions(
 
     # Remove gaps in a repetition list of frames. A single repetition must not contain gaps.
     reps = remove_gaps(reps, video_fps)
+    reps = shrink_reps(reps)
 
     print(f'\n\nTotal video repetitions: {repetition_counter.n_repeats}\n')
 
@@ -144,6 +146,26 @@ def remove_gaps(rep_dict, fps):
         cleaned_reps[rep].extend(max(results.values(), key=len))
 
     return cleaned_reps
+
+
+def shrink_reps(rep_dict):
+    """Removes extra frames in a rep.
+        Shrink each list of frames to 64 frames to match the inference network prerequisites.
+
+        How it works:
+            First check the number of extra frames then remove half from the beginning of
+            the list and half from the end to get a central clip.
+
+        """
+    for rep, frames in rep_dict.items():
+        if len(frames) > 64:
+            extra_frames = len(frames) - 64
+            slice = math.floor(extra_frames/2)
+            if extra_frames % 2 == 0:
+                frames = frames[slice:-slice]
+            else :
+                frames = frames[slice+1:-slice]
+    return rep_dict
 
 
 def process_video(video, motion_frames):

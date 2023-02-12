@@ -19,11 +19,11 @@ class MotionDetector:
 
     @property
     def motion_frames(self):
-        """Before returning motion frames list, extends it adding 2 * fps frame values before each gap.
+        """Before returning motion frames list, extends it adding 1 * fps frame values before each gap.
         Since motion frames are ideally recorded when the barbell is moving, then it is necessary to
         go back of a small amount of frames to catch the start of a repetition.
         """
-        sec = int(self.fps) * 2
+        sec = int(self.fps) * 1
 
         extended_motion_frames = copy.deepcopy(self._motion_frames)
 
