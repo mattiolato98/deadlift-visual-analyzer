@@ -58,7 +58,7 @@ sampling_rate = 2
 frames_per_second = 30
 alpha = 4
 
-weights = 'custom_weights/slowfast_r101_v1_100epochs.pth'
+weights = 'custom_weights/slowfast_r101_centercrop_50+50+100ep_540p_final.pth'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
