@@ -58,7 +58,7 @@ sampling_rate = 2
 frames_per_second = 30
 alpha = 4
 
-weights = 'custom_weights/slowfast_r101_centercrop_50+50+100ep_540p_final.pth'
+weights = 'custom_weights/slowfast_r101_centercrop_50ep_540p_final.pth'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -93,7 +93,7 @@ transform = ApplyTransformToKey(
             Lambda(lambda x: x / 255.0),
             NormalizeVideo(mean, std),
             RandomShortSideScale(min_size=256, max_size=320),
-            RandomCrop(224),
+            CenterCropVideo(224),
             RandomHorizontalFlip(p=0.5),
             PackPathway()
         ]
@@ -231,11 +231,15 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
     return model_ft
 
 
-def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_epochs=5):
+def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_epochs):
     since = time.time()
-    val_acc_history = []
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
+    train_loss_values = []
+    val_loss_values = []
+    train_acc_values = []
+    val_acc_values = []
+    epoch_count = []
 
     for epoch in range(num_epochs):
         print(f"Epoch : {epoch} of {num_epochs}")
@@ -298,8 +302,10 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
 
             if epoch_acc_val > best_acc:
                 best_acc = epoch_acc_val
-                best_models_wts = copy.deepcopy(model.state_dict())
-            val_acc_history.append(epoch_acc_val)
+                best_model_wts = copy.deepcopy(model.state_dict())
+
+            train_acc_values.append(epoch_acc)
+            val_acc_values.append(epoch_acc_val)
 
             train_loss_values.append(epoch_loss)
             val_loss_values.append(epoch_loss_val)
@@ -315,9 +321,17 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
     model.load_state_dict(best_model_wts)
 
     print(f"Saving model parameters to {model_save_path}")
-    torch.save(obj=model_ft.state_dict(), f=model_save_path)
+    # torch.save(obj=model_ft.state_dict(), f=model_save_path)
+    torch.save({
+        'epoch': num_epochs,
+        'model_state_dict': best_model_wts,
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': train_loss_values[-1],
+    }, model_save_path)
     print("Parameters successfully saved")
-    return model, val_acc_history
+
+    return model, train_loss_values, train_acc_values, val_loss_values, val_acc_values
+
 
 
 def split_dataset(dataset_name, batch_size=8, transform=None):
@@ -360,11 +374,11 @@ def split_dataset(dataset_name, batch_size=8, transform=None):
     return train_loader, val_loader
 
 
-def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path,
+def model_evaluation(train_loss_values, train_acc_values, val_loss_values, val_acc_values, model_name, num_classes, feature_extract, model_save_path,
                      saving_model_name):
     # Load best model's parameters
-    model_v1 = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
-    model_v1.load_state_dict(torch.load(model_save_path))
+    # model_v1 = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
+    # model_v1.load_state_dict(torch.load(model_save_path))
 
     '''
     plt.plot(epoch_count, torch.tensor(train_loss_values).numpy(), label="Train loss")
@@ -378,7 +392,7 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
     print("Saving training stats....")
     path = Path(os.getcwd()) \
            / f"Deadlift_models/{saving_model_name}.pickle"
-    save_object = (train_loss_values, val_loss_values)
+    save_object = {'train': (train_loss_values, val_loss_values), 'test': (train_acc_values, val_acc_values)}
     with open(path, 'wb') as handle:
         pickle.dump(save_object, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("Training statistics successfully saved")
@@ -386,11 +400,12 @@ def model_evaluation(train_loss_values, val_loss_values, model_name, num_classes
     # with open('filename.pickle', 'rb') as handle:
     #     b = pickle.load(handle)
 
+
 def inference(video_path, reps_range):
 
     model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
     model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=device))
-
+    model.to(device)
     # Initialize an EncodedVideo helper class
     video = EncodedVideo.from_path(video_path)
 
@@ -473,46 +488,58 @@ def evaluate_accuracy():
 
 if __name__ == '__main__':
     project_path = Path(os.getcwd())
-    num_epochs = 200
-    saving_model_name = "slowfast_r101_v1_200+200ep_540p_final"
-    loading_model_name = "slowfast_r101_v1_100+200ep_540p_final"
-    # Initialize the model for this run
-    model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
-
+    num_epochs = 1
     model_path = project_path / "Deadlift_models/"
-    model_path.mkdir(parents=True, exist_ok=True)
-    model_load_name = f"{loading_model_name}.pth"
-    model_load_path = model_path / model_load_name
+    saving_model_name = "test_2"
+    loading_model_name = "test"
 
-    model_ft.load_state_dict(torch.load(model_load_path))
-    print("Custom weights successfully loaded")
-    # Print the model we just instantiated
-    # print(model_ft)
+    # Initialize the model for this run
+    resume = True
+
+    if not resume:
+        model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
+
+    else:
+        model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
+
+        model_path.mkdir(parents=True, exist_ok=True)
+        model_load_name = f"{loading_model_name}.pth"
+        model_load_path = model_path / model_load_name
 
     # Gather the parameters to be optimized/updated in this run. If we are
     #  finetuning we will be updating all parameters. However, if we are
     #  doing feature extract method, we will only update the parameters
     #  that we have just initialized, i.e. the parameters with requires_grad
     #  is True.
+    model_ft.to(device)
     params_to_update = model_ft.parameters()
-    print("Params to learn:")
+    print(f"{model_name} initialization completed")
     if feature_extract:
         params_to_update = []
         for name, param in model_ft.named_parameters():
             if param.requires_grad == True:
                 params_to_update.append(param)
-                print("\t", name)
-    else:
-        for name, param in model_ft.named_parameters():
-            if param.requires_grad == True:
-                print("\t", name)
+                # print("\t", name)
+    # else:
+    #     for name, param in model_ft.named_parameters():
+    #         if param.requires_grad == True:
+    #             print("\t", name)
 
-    # Observe that all parameters are being optimized
     optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
+    loss_fn = nn.CrossEntropyLoss()
 
-    train_loss_values = []
-    val_loss_values = []
-    epoch_count = []
+    if resume:
+        checkpoint = torch.load(model_load_path)
+        # model_ft.load_state_dict(torch.load(model_load_path))
+
+        model_ft.load_state_dict(checkpoint['model_state_dict'])
+        optimizer_ft.load_state_dict(checkpoint['optimizer_state_dict'])
+        last_epochs = checkpoint['epoch']
+        loss = checkpoint['loss']
+
+        # model_ft.load_state_dict(torch.load(model_load_path))
+        print("Custom weights successfully loaded")
+
 
     model_save_name = f"{saving_model_name}.pth"
     model_save_path = model_path / model_save_name
@@ -521,11 +548,12 @@ if __name__ == '__main__':
 
     train_loader, val_loader = split_dataset(dataset, batch_size=16, transform=transform)
 
-    loss_fn = nn.CrossEntropyLoss()
-    model_ft = model_ft.to(device)
-    model_ft, hist = train_model_v2(model_ft, train_loader, val_loader, loss_fn, optimizer_ft, num_epochs=num_epochs)
 
-    model_evaluation(train_loss_values, val_loss_values, model_name, num_classes, feature_extract, model_save_path,
+
+    model_ft, tr_l, tr_a, val_l, val_a = train_model_v2(model_ft, train_loader, val_loader, loss_fn, optimizer_ft,
+                                                        num_epochs=num_epochs)
+
+    model_evaluation(tr_l, tr_a, val_l, val_a, model_name, num_classes, feature_extract, model_save_path,
                      saving_model_name)
 
-    # inference()
+# inference()
