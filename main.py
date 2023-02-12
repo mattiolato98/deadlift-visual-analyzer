@@ -87,7 +87,7 @@ def count_and_split_repetitions(
                     cap.get(cv2.CAP_PROP_POS_FRAMES))
 
                 if repetitions_count > old_reps:
-                    print(f'-\n--------------- Reps: {repetitions_count} ---------------\n')
+                    print(f'-\n--------------- Processing rep number {repetitions_count} ---------------')
                     reps[repetitions_count - 1].extend(motion_frames[start_frame_idx:idx+1])
                     start_frame_idx = idx + 1
 
@@ -115,7 +115,7 @@ def count_and_split_repetitions(
 
     # Remove gaps in a repetition list of frames. A single repetition must not contain gaps.
     reps = remove_gaps(reps, video_fps)
-    reps = shrink_reps(reps)
+    # reps = shrink_reps(reps)
 
     print(f'\n\nTotal video repetitions: {repetition_counter.n_repeats}\n')
 
@@ -158,6 +158,7 @@ def shrink_reps(rep_dict):
 
         """
     for rep, frames in rep_dict.items():
+        print(f"rep n {rep}, total frames:{len(frames)}")
         if len(frames) > 64:
             extra_frames = len(frames) - 64
             slice = math.floor(extra_frames/2)
@@ -165,6 +166,8 @@ def shrink_reps(rep_dict):
                 frames = frames[slice:-slice]
             else :
                 frames = frames[slice+1:-slice]
+        print(f"after rep n {rep}, total frames:{len(frames)}")
+
     return rep_dict
 
 
@@ -229,7 +232,6 @@ def inference(video_path, yolo_detection):
     )
 
     reps_range = [(frames[0] / fps, frames[-1] / fps) for frames in reps_frames.values()]
-
     preds = slowfast_inference(video_path, reps_range) if len(reps_range) > 0 else 'No motion frames'
 
     return preds
