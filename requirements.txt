@@ -7,6 +7,7 @@ numpy==1.20.3
 opencv-python==4.6.0.66
 pillow==8.1.0
 pytorchvideo==0.1.5
+roboflow==0.2.29
 torch==1.13.0
 torchvision==0.14.0
 tqdm~=4.64.1
