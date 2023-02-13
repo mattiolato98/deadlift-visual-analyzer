@@ -33,9 +33,17 @@ def train(dataset_location):
     )
 
 
+def val(dataset_location):
+    os.system(
+        f'python yolov5/val.py --weights custom_weights/best.pt '
+        f'--data {dataset_location}/data.yaml --task val'
+    )
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--load', action='store_true', help='Load dataset from Roboflow before training')
+    parser.add_argument('-v', '--val', action='store_true', help='Validation')
     args = parser.parse_args()
 
     if args.load:
@@ -45,4 +53,7 @@ if __name__ == '__main__':
         with open('dataset_location.txt', 'r') as f:
             dataset_location = f.read().strip()
 
-    train(dataset_location)
+    if args.val:
+        val(dataset_location)
+    else:
+        train(dataset_location)
