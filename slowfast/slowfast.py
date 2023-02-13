@@ -58,7 +58,7 @@ sampling_rate = 2
 frames_per_second = 30
 alpha = 4
 
-weights = 'custom_weights/slowfast_r101_centercrop_50ep_540p_final.pth'
+weights = 'custom_weights/centercrop_newtr_100ep_noinitilaframes.pth'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -392,7 +392,7 @@ def model_evaluation(train_loss_values, train_acc_values, val_loss_values, val_a
     print("Saving training stats....")
     path = Path(os.getcwd()) \
            / f"Deadlift_models/{saving_model_name}.pickle"
-    save_object = {'train': (train_loss_values, val_loss_values), 'test': (train_acc_values, val_acc_values)}
+    save_object = {'loss': (train_loss_values, val_loss_values), 'acc': (train_acc_values, val_acc_values)}
     with open(path, 'wb') as handle:
         pickle.dump(save_object, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("Training statistics successfully saved")
@@ -404,7 +404,8 @@ def model_evaluation(train_loss_values, train_acc_values, val_loss_values, val_a
 def inference(video_path, reps_range):
 
     model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
-    model.load_state_dict(torch.load(Path(os.getcwd()) / weights, map_location=device))
+    checkpoint = torch.load(weights, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     # Initialize an EncodedVideo helper class
     video = EncodedVideo.from_path(video_path)
@@ -416,6 +417,7 @@ def inference(video_path, reps_range):
 
     for start_sec, end_sec in reps_range:
         # Load the desired clip
+        print(start_sec, end_sec)
         video_data = video.get_clip(start_sec=start_sec, end_sec=end_sec)
 
         # Apply a transform to normalize the video input
@@ -435,7 +437,9 @@ def inference(video_path, reps_range):
     post_act = torch.nn.Sigmoid()
     preds = model(final_batch)
     preds = post_act(preds)
+    print(preds)
     pred_classes = preds.topk(k=1).indices
+    print(pred_classes)
 
     #
     # if pred_classes.item() == 0:
@@ -450,15 +454,13 @@ def inference(video_path, reps_range):
 
     # From list of lists to single list
     final_predictions = []
-    # for elem in pred_classes:
-    #     if type(elem) is list:
-    #         for item in elem:
-    #             final_predictions.append(item)
-    #     else:
-    #         final_predictions.append(elem)
-
-    final_predictions = [item in sublist for sublist in pred_classes for item in sublist]
-
+    for elem in pred_classes:
+        if type(elem) is list:
+            for item in elem:
+                final_predictions.append(item)
+        else:
+            final_predictions.append(elem)
+    # final_predictions = [item in sublist for sublist in pred_classes for item in sublist]
     return final_predictions
 
 
@@ -488,10 +490,10 @@ def evaluate_accuracy():
 
 if __name__ == '__main__':
     project_path = Path(os.getcwd())
-    num_epochs = 1
+    num_epochs = 100
     model_path = project_path / "Deadlift_models/"
-    saving_model_name = "test_2"
-    loading_model_name = "test"
+    saving_model_name = "centercrop_newtr_200ep_noinitilaframes"
+    loading_model_name = "centercrop_newtr_100ep_noinitilaframes"
 
     # Initialize the model for this run
     resume = True
