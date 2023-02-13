@@ -33,7 +33,7 @@ class MotionDetector:
 
         extended_motion_frames.sort()
 
-        return extended_motion_frames
+        return self._motion_frames
 
     def build_ground_position(self, y):
         """ Compute the average y value, when the barbell is on the ground.
