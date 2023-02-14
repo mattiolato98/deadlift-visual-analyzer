@@ -3,17 +3,17 @@ from collections import defaultdict
 
 from main import inference, show_results
 
-PATH = 'test/videos/'
+PATH = 'test/video_bad/'
 
 
 if __name__ == '__main__':
     # results = defaultdict(list)
     results = {}
-    for idx, filename in enumerate(os.listdir('test/videos')):
+    for idx, filename in enumerate(os.listdir('test/video_bad')):
         if os.path.isfile(f'{os.getcwd()}/{PATH}{filename}'):
             print(f'\n{idx + 1}) Processing {filename}')
 
-            predictions = inference(f'{PATH}{filename}', yolo_detection=True)
+            predictions = inference(f'{PATH}{filename}', yolo_detection=False)
             # results[filename].append(predictions)
             print(predictions)
             results[filename] = predictions
