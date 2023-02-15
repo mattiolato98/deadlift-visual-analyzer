@@ -30,17 +30,13 @@ def count_and_split_repetitions(
         cap,
         video_n_frames,
         video_fps,
-        video_width,
-        video_height,
         motion_frames,
         pose_tracker,
         pose_classifier,
         pose_classification_filter,
         repetition_counter):
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-    # out = cv2.VideoWriter('rep0.mp4', fourcc, video_fps, (video_width, video_height))
-    reps = defaultdict(list)
+    reps = defaultdict(list)  # Dictionary {num_repetition: [list_of_frame_numbers]}
 
     old_reps = 0
     start_frame_idx = 0
@@ -52,8 +48,6 @@ def count_and_split_repetitions(
 
             if not ret:
                 break
-
-            # out.write(input_frame)
 
             # Run pose tracker.
             input_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
@@ -92,8 +86,6 @@ def count_and_split_repetitions(
                     start_frame_idx = idx + 1
 
                     old_reps = repetitions_count
-                    # out.release()
-                    # out = cv2.VideoWriter(f'rep{repetitions_count}.mp4', fourcc, video_fps, (video_width, video_height))
             else:
                 # No pose => no classification on current frame.
                 pose_classification = None
@@ -111,7 +103,6 @@ def count_and_split_repetitions(
 
     # Release MediaPipe resources.
     pose_tracker.close()
-    # out.release()
 
     # Remove gaps in a repetition list of frames. A single repetition must not contain gaps.
     reps = remove_gaps(reps, video_fps)
@@ -171,7 +162,7 @@ def shrink_reps(rep_dict):
     return rep_dict
 
 
-def process_video(video, motion_frames):
+def process_video(video, motion_frames, save_reps):
     cap = cv2.VideoCapture(video)
 
     # Get some video parameters to generate output video with classification
@@ -199,14 +190,43 @@ def process_video(video, motion_frames):
         exit_threshold=0.49
     )
 
+    video_name = video.split('/')[-1].split('.')[0]
     reps_frames, total_repetitions = count_and_split_repetitions(
-        cap, video_n_frames, video_fps, video_width, video_height, motion_frames, pose_tracker, pose_classifier, pose_classification_filter, repetition_counter
+        cap, video_n_frames, video_fps, motion_frames, pose_tracker,
+        pose_classifier, pose_classification_filter, repetition_counter
     ) if motion_frames is not None else 0
+
+    if save_reps:
+        save_reps_videos(cap, reps_frames, video_name, video_fps, video_width, video_height)
 
     return video_fps, reps_frames, total_repetitions
 
 
-def inference(video_path, yolo_detection):
+def save_reps_videos(cap, reps, video_name, video_fps, video_width, video_height):
+    """ Save single repetitions to filesystem. """
+    try:
+        os.mkdir(video_name)  # Creating directory to store repetitions videos
+    except FileExistsError:
+        pass
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    for rep, frames in reps.items():
+        out = cv2.VideoWriter(
+            f'{video_name}/rep{rep + 1}.mp4', fourcc, video_fps, (video_width, video_height)
+        )
+        for frame_number in frames:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
+            ret, input_frame = cap.read()
+
+            if not ret:
+                break
+
+            out.write(input_frame)
+        out.release()
+
+
+def inference(video_path, yolo_detection, save_reps):
     if not os.path.isfile(video_path):
         raise FileNotFoundError()
 
@@ -217,6 +237,7 @@ def inference(video_path, yolo_detection):
             conf_thres=0.4,
             source=video_path,
         )
+
         if len(motion_frames) == 0:
             manual = input("No barbell detected. Do you want to try with manual tracking (y/n)? ").lower()
             if manual != 'n':
@@ -228,7 +249,8 @@ def inference(video_path, yolo_detection):
 
     fps, reps_frames, total_repetitions = process_video(
         video_path,
-        motion_frames if len(motion_frames) > 0 else None
+        motion_frames if len(motion_frames) > 0 else None,
+        save_reps
     )
 
     reps_range = [(frames[0] / fps, frames[-1] / fps) for frames in reps_frames.values()]
@@ -248,6 +270,10 @@ def show_results(filename, predictions):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--save-reps', action='store_true', help='Save single repetitions to video.')
+    args = parser.parse_args()
+
     video_path = input("Enter the path of the video to classify: ")
     automatic_detection = input("Do you want to use automatic detection (y/n)? ").lower()
     if automatic_detection != 'n':
@@ -255,5 +281,5 @@ if __name__ == '__main__':
     else:
         automatic_detection = False
 
-    preds = inference(video_path, automatic_detection)
+    preds = inference(video_path, automatic_detection, args.save_reps)
     show_results(video_path, preds)
