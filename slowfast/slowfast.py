@@ -323,7 +323,7 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
 
 def split_dataset(dataset_name, batch_size=8, transform=None):
     dataset = Path(os.getcwd()) / f"{dataset_name}"
-    deadlift_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "train.csv", transform=transform)
+    deadlift_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "dataset.csv", transform=transform)
 
     dataset_size = len(deadlift_dataset)
 
@@ -387,6 +387,7 @@ def model_evaluation(train_loss_values, train_acc_values, val_loss_values, val_a
 
 
 def inference(video_path, reps_range):
+    print("Evaluation of your repetitions started")
     model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
     checkpoint = torch.load(weights, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -433,6 +434,7 @@ def inference(video_path, reps_range):
                 final_predictions.append(item)
         else:
             final_predictions.append(elem)
+    print("Assessment of your repetitions successfully completed")
     # final_predictions = [item in sublist for sublist in pred_classes for item in sublist]
     return final_predictions
 
@@ -463,13 +465,13 @@ def evaluate_accuracy():
 
 if __name__ == '__main__':
     project_path = Path(os.getcwd())
-    num_epochs = 100
+    num_epochs = 200
     model_path = project_path / "Deadlift_models/"
-    saving_model_name = "centercrop_newtr_200ep_noinitilaframes"
+    saving_model_name = "final_training_200ep"
     loading_model_name = "centercrop_newtr_100ep_noinitilaframes"
 
     # Initialize the model for this run
-    resume = True
+    resume = False
 
     if not resume:
         model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
