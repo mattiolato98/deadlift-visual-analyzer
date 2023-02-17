@@ -57,5 +57,9 @@ def mean_shift_motion_frames(video_path):
         frame_number += 1
 
     cv2.destroyAllWindows()
+    cv2.waitKey(1)
+    cv2.waitKey(1)
+    cv2.waitKey(1)
+    cv2.waitKey(1)
 
     return motion_detector.motion_frames

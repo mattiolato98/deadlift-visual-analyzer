@@ -1,7 +1,7 @@
 import os
 from collections import defaultdict
 
-from main import inference, show_results
+from main import evaluation, show_results
 
 PATH = 'test/video_bad/'
 
@@ -13,7 +13,7 @@ if __name__ == '__main__':
         if os.path.isfile(f'{os.getcwd()}/{PATH}{filename}'):
             print(f'\n{idx + 1}) Processing {filename}')
 
-            predictions = inference(f'{PATH}{filename}', yolo_detection=False)
+            predictions = evaluation(f'{PATH}{filename}', yolo_detection=False)
             # results[filename].append(predictions)
             print(predictions)
             results[filename] = predictions
