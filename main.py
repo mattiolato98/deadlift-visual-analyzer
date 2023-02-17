@@ -1,6 +1,8 @@
 import argparse
 import os
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -18,28 +20,46 @@ from pose_classification.pose_classifier import PoseClassifier
 from pose_classification.pose_embedder import FullBodyPoseEmbedder
 from rep_counter.repetition_counter import RepetitionCounter
 from slowfast.slowfast import inference as slowfast_inference
+from video_utils.video import Video
 
 WEIGHTS_PATH = 'custom_weights/yolo_best_weights.pt'
 PATH = 'test/videos/'
+RESULTS_PATH = Path('results')
 CLASS_NAME = 'deadlift_up'
 POSE_SAMPLES_PATH = 'deadlift_poses'
 GROUND_TRUTH_CSV = 'test/reps.csv'
 
+sys.path.insert(0, "yolov5")
 
 def count_and_split_repetitions(
         cap,
         video_n_frames,
         video_fps,
-        motion_frames,
-        pose_tracker,
-        pose_classifier,
-        pose_classification_filter,
-        repetition_counter):
+        motion_frames):
+    pose_tracker = mp_pose.Pose()
+    pose_embedder = FullBodyPoseEmbedder()
+    pose_classifier = PoseClassifier(
+        pose_samples_folder=POSE_SAMPLES_PATH,
+        pose_embedder=pose_embedder,
+        top_n_by_max_distance=30,
+        top_n_by_mean_distance=10
+    )
+    pose_classification_filter = EMADictSmoothing(
+        window_size=int(video_fps),
+        alpha=0.2
+    )
+    repetition_counter = RepetitionCounter(
+        class_name=CLASS_NAME,
+        motion_frames=motion_frames,
+        enter_threshold=0.90,
+        exit_threshold=0.49
+    )
 
     reps = defaultdict(list)  # Dictionary {num_repetition: [list_of_frame_numbers]}
 
     old_reps = 0
     start_frame_idx = 0
+    print("Start processing the repetitions of your exercise...")
     with tqdm.tqdm(total=video_n_frames, position=0, leave=True) as pbar:
         for idx, frame_number in enumerate(motion_frames):
             # Get next frame of the video.
@@ -81,8 +101,8 @@ def count_and_split_repetitions(
                     cap.get(cv2.CAP_PROP_POS_FRAMES))
 
                 if repetitions_count > old_reps:
-                    print(f'-\n--------------- Processing rep number {repetitions_count} ---------------')
-                    reps[repetitions_count - 1].extend(motion_frames[start_frame_idx:idx+1])
+                    print(f'--------------- Processing of repetition number {repetitions_count} completed---------------')
+                    reps[repetitions_count - 1].extend(motion_frames[start_frame_idx:idx + 1])
                     start_frame_idx = idx + 1
 
                     old_reps = repetitions_count
@@ -107,8 +127,8 @@ def count_and_split_repetitions(
     # Remove gaps in a repetition list of frames. A single repetition must not contain gaps.
     reps = remove_gaps(reps, video_fps)
     # reps = shrink_reps(reps)
-
-    print(f'\n\nTotal video repetitions: {repetition_counter.n_repeats}\n')
+    print("Extraction of repetitions completed")
+    print(f'\n\nTotal exercise repetitions: {repetition_counter.n_repeats}\n')
 
     return reps, repetition_counter.n_repeats
 
@@ -152,81 +172,17 @@ def shrink_reps(rep_dict):
         print(f"rep n {rep}, total frames:{len(frames)}")
         if len(frames) > 64:
             extra_frames = len(frames) - 64
-            slice = math.floor(extra_frames/2)
+            slice = math.floor(extra_frames / 2)
             if extra_frames % 2 == 0:
                 frames = frames[slice:-slice]
-            else :
-                frames = frames[slice+1:-slice]
+            else:
+                frames = frames[slice + 1:-slice]
         print(f"after rep n {rep}, total frames:{len(frames)}")
 
     return rep_dict
 
 
-def process_video(video, motion_frames, save_reps):
-    cap = cv2.VideoCapture(video)
-
-    # Get some video parameters to generate output video with classification
-    video_n_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    video_fps = cap.get(cv2.CAP_PROP_FPS)
-    video_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    video_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    pose_tracker = mp_pose.Pose()
-    pose_embedder = FullBodyPoseEmbedder()
-    pose_classifier = PoseClassifier(
-        pose_samples_folder=POSE_SAMPLES_PATH,
-        pose_embedder=pose_embedder,
-        top_n_by_max_distance=30,
-        top_n_by_mean_distance=10
-    )
-    pose_classification_filter = EMADictSmoothing(
-        window_size=int(video_fps),
-        alpha=0.2
-    )
-    repetition_counter = RepetitionCounter(
-        class_name=CLASS_NAME,
-        motion_frames=motion_frames,
-        enter_threshold=0.90,
-        exit_threshold=0.49
-    )
-
-    video_name = video.split('/')[-1].split('.')[0]
-    reps_frames, total_repetitions = count_and_split_repetitions(
-        cap, video_n_frames, video_fps, motion_frames, pose_tracker,
-        pose_classifier, pose_classification_filter, repetition_counter
-    ) if motion_frames is not None else 0
-
-    if save_reps:
-        save_reps_videos(cap, reps_frames, video_name, video_fps, video_width, video_height)
-
-    return video_fps, reps_frames, total_repetitions
-
-
-def save_reps_videos(cap, reps, video_name, video_fps, video_width, video_height):
-    """ Save single repetitions to filesystem. """
-    try:
-        os.mkdir(video_name)  # Creating directory to store repetitions videos
-    except FileExistsError:
-        pass
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-    for rep, frames in reps.items():
-        out = cv2.VideoWriter(
-            f'{video_name}/rep{rep + 1}.mp4', fourcc, video_fps, (video_width, video_height)
-        )
-        for frame_number in frames:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
-            ret, input_frame = cap.read()
-
-            if not ret:
-                break
-
-            out.write(input_frame)
-        out.release()
-
-
-def inference(video_path, yolo_detection, save_reps):
+def evaluation(video_path, yolo_detection, save_reps):
     if not os.path.isfile(video_path):
         raise FileNotFoundError()
 
@@ -241,20 +197,23 @@ def inference(video_path, yolo_detection, save_reps):
         if len(motion_frames) == 0:
             manual = input("No barbell detected. Do you want to try with manual tracking (y/n)? ").lower()
             if manual != 'n':
-                inference(video_path, False)
+                evaluation(video_path, False)
             else:
                 return None
     else:
         motion_frames = mean_shift_motion_frames(video_path)
+    video = Video(video_path, motion_frames if len(motion_frames) > 0 else None)
+    reps_frames, total_repetitions = count_and_split_repetitions(
+        video.cap, video.n_frames, video.fps, video.motion_frames) if motion_frames is not None else 0
 
-    fps, reps_frames, total_repetitions = process_video(
-        video_path,
-        motion_frames if len(motion_frames) > 0 else None,
-        save_reps
-    )
-
-    reps_range = [(frames[0] / fps, frames[-1] / fps) for frames in reps_frames.values()]
+    reps_range = [(frames[0] / video.fps, frames[-1] / video.fps) for frames in reps_frames.values()]
     preds = slowfast_inference(video_path, reps_range) if len(reps_range) > 0 else 'No motion frames'
+    show_results(video.name, preds)
+    save_path = RESULTS_PATH / video.name
+    if save_reps:
+        print(f"Saving your labeled repetitions in {save_path} folder...")
+        video.save_reps(save_path, reps_frames, preds)
+        print(f"Saving successfully completed")
 
     return preds
 
@@ -281,5 +240,5 @@ if __name__ == '__main__':
     else:
         automatic_detection = False
 
-    preds = inference(video_path, automatic_detection, args.save_reps)
-    show_results(video_path, preds)
+    evaluation('test/test_good.mp4', True, True)
+
