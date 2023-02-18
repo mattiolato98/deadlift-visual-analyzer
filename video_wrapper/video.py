@@ -1,7 +1,7 @@
-from pathlib import Path
-
 import cv2
 import os
+
+from paths import RESULTS_PATH as SAVE_PATH
 
 
 class Video:
@@ -24,16 +24,17 @@ class Video:
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.name = video.split('/')[-1].split('.')[0]
 
-    def save_reps(self, save_path, reps, preds):
+    def save_reps(self, reps, preds):
         """Saves single repetitions to the file system.
 
         Args:
-            save_path (str): The path to save the repetitions.
             reps (dict): A dictionary of repetition numbers and corresponding frames.
             preds (list): A list of predictions for each repetition.
         """
+        print(f"Saving your labeled repetitions in {SAVE_PATH}/{self.name}/ folder...")
+
         try:
-            os.mkdir(save_path)  # Creating directory to store repetitions videos
+            os.makedirs(SAVE_PATH / self.name)  # Creating directory to store repetitions videos
         except FileExistsError:
             pass
 
@@ -41,7 +42,7 @@ class Video:
 
         for (rep, frames), pred in zip(reps.items(), preds):
             out = cv2.VideoWriter(
-                f'{save_path}/rep{rep + 1}.mp4', fourcc, self.fps, (self.width, self.height)
+                f'{SAVE_PATH}/{self.name}/rep{rep + 1}.mp4', fourcc, self.fps, (self.width, self.height)
             )
             for frame_number in frames:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
@@ -59,3 +60,5 @@ class Video:
 
                 out.write(input_frame)
             out.release()
+
+        print(f"Saving successfully completed")

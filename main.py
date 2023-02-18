@@ -2,33 +2,24 @@ import argparse
 import os
 import sys
 from collections import defaultdict
-from pathlib import Path
 
 import cv2
 import numpy as np
 import tqdm
 import math
 
-from custom_yolov5.detect_motion import detect_motion_frames
+
 from mean_shift.tracking import mean_shift_motion_frames
 from mediapipe.python.solutions import pose as mp_pose
 from mediapipe.python.solutions import drawing_utils as mp_drawing
 
+from paths import *
 from pose_classification.ema_smoothing import EMADictSmoothing
 from pose_classification.pose_classifier import PoseClassifier
 from pose_classification.pose_embedder import FullBodyPoseEmbedder
 from rep_counter.repetition_counter import RepetitionCounter
 from slowfast.slowfast import inference as slowfast_inference
 from video_wrapper.video import Video
-
-WEIGHTS_PATH = 'custom_weights/yolo_best_weights.pt'
-PATH = 'test/videos/'
-RESULTS_PATH = Path('results')
-CLASS_NAME = 'deadlift_up'
-POSE_SAMPLES_PATH = 'deadlift_poses'
-GROUND_TRUTH_CSV = 'test/reps.csv'
-
-sys.path.insert(0, "yolov5")
 
 
 def count_and_split_repetitions(cap, video_n_frames, video_fps, motion_frames):
@@ -253,18 +244,21 @@ def evaluation(video_path, yolo_detection, save_reps):
                 return None
     else:
         motion_frames = mean_shift_motion_frames(video_path)
-    video = Video(video_path, motion_frames if len(motion_frames) > 0 else None)
+
+    if len(motion_frames) == 0:
+        print('No motion frames, interrupting.')
+        return None
+
+    video = Video(video_path, motion_frames)
     reps_frames, total_repetitions = count_and_split_repetitions(
-        video.cap, video.n_frames, video.fps, video.motion_frames) if motion_frames is not None else 0
+        video.cap, video.n_frames, video.fps, video.motion_frames)
 
     reps_range = [(frames[0] / video.fps, frames[-1] / video.fps) for frames in reps_frames.values()]
-    preds = slowfast_inference(video_path, reps_range) if len(reps_range) > 0 else 'No motion frames'
+    preds = slowfast_inference(video_path, reps_range)
     show_results(video.name, preds)
-    save_path = RESULTS_PATH / video.name
+
     if save_reps:
-        print(f"Saving your labeled repetitions in {save_path} folder...")
-        video.save_reps(save_path, reps_frames, preds)
-        print(f"Saving successfully completed")
+        video.save_reps(reps_frames, preds)
 
     return preds
 
@@ -291,6 +285,9 @@ def show_results(filename, predictions):
 
 
 if __name__ == '__main__':
+    sys.path.insert(0, "yolov5")
+    from custom_yolov5.detect_motion import detect_motion_frames
+
     parser = argparse.ArgumentParser()
     parser.add_argument('video_path', help='Path of the video to evaluate.')
     tracking_type = parser.add_mutually_exclusive_group()
