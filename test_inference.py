@@ -7,7 +7,7 @@ PATH = 'test/video_bad/'
 
 
 if __name__ == '__main__':
-    # results = defaultdict(list)
+    """Process video files and show results."""
     results = {}
     for idx, filename in enumerate(os.listdir('test/video_bad')):
         if os.path.isfile(f'{os.getcwd()}/{PATH}{filename}'):

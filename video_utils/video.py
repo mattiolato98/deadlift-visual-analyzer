@@ -5,7 +5,16 @@ import os
 
 
 class Video:
+    """A class that represents a video file and provides methods to manipulate and extract
+    information from it.
+    """
     def __init__(self, video, motion_frames):
+        """Initializes a new instance of the Video class.
+
+        Args:
+            video (str): The path to the video file.
+            motion_frames (List[int]): A list of frame numbers with barbell in motion.
+        """
         self.cap = cv2.VideoCapture(video)
         self.motion_frames = motion_frames
 
@@ -16,7 +25,13 @@ class Video:
         self.name = video.split('/')[-1].split('.')[0]
 
     def save_reps(self, save_path, reps, preds):
-        """ Save single repetitions to filesystem. """
+        """Saves single repetitions to the file system.
+
+        Args:
+            save_path (str): The path to save the repetitions.
+            reps (dict): A dictionary of repetition numbers and corresponding frames.
+            preds (list): A list of predictions for each repetition.
+        """
         try:
             os.mkdir(save_path)  # Creating directory to store repetitions videos
         except FileExistsError:

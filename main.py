@@ -31,11 +31,26 @@ GROUND_TRUTH_CSV = 'test/reps.csv'
 
 sys.path.insert(0, "yolov5")
 
-def count_and_split_repetitions(
-        cap,
-        video_n_frames,
-        video_fps,
-        motion_frames):
+
+def count_and_split_repetitions(cap, video_n_frames, video_fps, motion_frames):
+    """Split the video into single repetitions and count them.
+
+    Args:
+        cap (cv2.VideoCapture): The VideoCapture instance.
+        video_n_frames (int): The total number of frames in the video.
+        video_fps (int): The FPS (frames per second) of the video.
+        motion_frames (list): A list of motion frames.
+
+    Returns:
+        tuple: A dictionary of repetitions with the start and end frames for each repetition and the total number of
+        repetitions in the video.
+
+    How it works:
+        First, it creates all the necessary instances for estimating and classifying the athlete's pose in the video.
+        Subsequently, the pose is predicted and classified for each individual frame. Finally, it is evaluated whether
+        the current frame belongs to a new repetition or not by verifying if the pose has changed compared to the pose
+        of a set of previous frames.
+    """
     pose_tracker = mp_pose.Pose()
     pose_embedder = FullBodyPoseEmbedder()
     pose_classifier = PoseClassifier(
@@ -101,7 +116,8 @@ def count_and_split_repetitions(
                     cap.get(cv2.CAP_PROP_POS_FRAMES))
 
                 if repetitions_count > old_reps:
-                    print(f'--------------- Processing of repetition number {repetitions_count} completed---------------')
+                    print(
+                        f'--------------- Processing of repetition number {repetitions_count} completed---------------')
                     reps[repetitions_count - 1].extend(motion_frames[start_frame_idx:idx + 1])
                     start_frame_idx = idx + 1
 
@@ -135,7 +151,17 @@ def count_and_split_repetitions(
 
 def remove_gaps(rep_dict, fps):
     """Removes gaps in frames in a rep.
+
     A gap is defined as more than 1 * fps distance between two list elements.
+
+    Args:
+        rep_dict (dict): Dictionary containing rep index as key and list
+            of frames as value.
+        fps (int): Frames per second of the video.
+
+    Returns:
+        dict: Dictionary containing rep index as key and the longest list
+            of frames for that rep.
 
     How it works:
         At first, split the list containing a single rep frames in more lists without gaps, for each rep.
@@ -161,11 +187,18 @@ def remove_gaps(rep_dict, fps):
 
 def shrink_reps(rep_dict):
     """Removes extra frames in a rep.
-        Shrink each list of frames to 64 frames to match the inference network prerequisites.
 
-        How it works:
-            First check the number of extra frames then remove half from the beginning of
-            the list and half from the end to get a central clip.
+    Shrink each list of frames to 64 frames to match the inference network prerequisites.
+
+    Args:
+    rep_dict (dict): A dictionary containing reps as keys and list of frames as values.
+
+    Returns:
+    dict: A dictionary containing the shrunk lists of frames for each rep.
+
+    How it works:
+        First check the number of extra frames then remove half from the beginning of
+        the list and half from the end to get a central clip.
 
         """
     for rep, frames in rep_dict.items():
@@ -183,6 +216,25 @@ def shrink_reps(rep_dict):
 
 
 def evaluation(video_path, yolo_detection, save_reps):
+    """Evaluate the repetitions of a single video\
+
+    Args:
+        video_path (str): The path to the input video file.
+        yolo_detection (bool): A flag to indicate whether to use YOLO for motion detection or manual tracking.
+        save_reps (bool): A flag to indicate whether to save the labeled repetitions.
+
+    Returns:
+        preds (str): The prediction results.
+
+    Raises:
+        FileNotFoundError: If the input file does not exist.
+
+    How it works:
+        "First, we extract frames that contain the barbell in motion.
+        Then, we divide and sort these frames into individual repetitions and finally,
+        we pass these repetitions to the SlowFast network to obtain an evaluation."
+
+        """
     if not os.path.isfile(video_path):
         raise FileNotFoundError()
 
@@ -219,6 +271,17 @@ def evaluation(video_path, yolo_detection, save_reps):
 
 
 def show_results(filename, predictions):
+    """Display the results of the assessment of each repetition in a video.
+
+    Args:
+        filename (str): The name of the video file that was processed.
+        predictions (list of bool): A list of boolean values representing the assessment
+            (good/bad) of each repetition in the video.
+
+    How it works:
+        The function prints the number of total repetitions and the assessment (good/bad)
+        of each repetition to the console.
+    """
     if predictions is None:
         print('Nothing predicted')
     else:
@@ -241,4 +304,3 @@ if __name__ == '__main__':
         automatic_detection = False
 
     evaluation('test/test_good.mp4', True, True)
-

@@ -11,7 +11,7 @@ class EMADictSmoothing(object):
         """Smoothes given pose classification.
 
         Smoothing is done by computing Exponential Moving Average for every pose
-        class observed in the given time window. Missed pose classes arre replaced
+        class observed in the given time window. Missed pose classes are replaced
         with 0.
 
         Args:

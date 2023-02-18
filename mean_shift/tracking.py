@@ -5,6 +5,14 @@ from motion_detection.motion_utils import MotionDetector
 
 
 def mean_shift_motion_frames(video_path):
+    """Detects motion frames in a video using mean shift algorithm.
+
+    Args:
+        video_path (str): Path to input video.
+
+    Returns:
+        List of indices of the detected motion frames.
+    """
     cap = cv2.VideoCapture(video_path)
 
     # take first frame of the video

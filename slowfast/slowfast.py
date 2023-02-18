@@ -55,8 +55,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class PackPathway(torch.nn.Module):
-    """
-    Transform for converting video frames as a list of tensors.
+    """A module for transforming video frames into a list of tensors representing different pathways.
     """
 
     def __init__(self):
@@ -140,6 +139,19 @@ clip_duration = (num_frames * sampling_rate) / frames_per_second
 
 
 class DeadliftDataset(datasets.VisionDataset):
+    """A dataset class for loading deadlift videos.
+
+    Args:
+        csv_file (str): Path to the CSV file containing video paths and labels.
+        **kwargs: Additional keyword arguments to be passed to the parent class.
+
+    Attributes:
+        videos (pd.DataFrame): A DataFrame containing the video paths and labels.
+        root_dir (str): The root directory containing the video files.
+        transform (callable): A function/transform to be applied on the video data.
+
+    """
+
     def __init__(self, csv_file, **kwargs):
         super().__init__(**kwargs)
         self.videos = pd.read_csv(csv_file)
@@ -173,12 +185,20 @@ class DeadliftDataset(datasets.VisionDataset):
 
 
 def set_parameter_requires_grad(model, feature_extracting):
+    """Sets requires_grad attribute of a model's parameters based on feature_extracting flag.
+
+    Args:
+        model (nn.Module): Model to set requires_grad attribute for.
+        feature_extracting (bool): Flag indicating whether to set requires_grad to False for all parameters.
+    """
     if feature_extracting:
         for param in model.parameters():
             param.requires_grad = False
 
 
 def available_models():
+    """Print available pretrained pytorchvideo models.
+    """
     entrypoints = torch.hub.list('facebookresearch/pytorchvideo', force_reload=True)
     print('Available pretrained pytorchvideo models:')
     for model in entrypoints:
@@ -186,8 +206,17 @@ def available_models():
 
 
 def initialize_model(model_name, num_classes, feature_extract, use_pretrained=True):
-    # Initialize these variables which will be set in this if statement. Each of these
-    # variables is model specific.
+    """Initializes a model with a specified architecture and number of output classes.
+
+    Args:
+        model_name (str): Name of the model architecture.
+        num_classes (int): Number of output classes for the model.
+        feature_extract (bool): Whether to freeze the weights of the model or not.
+        use_pretrained (bool): Whether to use pre-trained weights or not.
+
+    Returns:
+        A model with the specified architecture and number of output classes.
+    """
     model_ft = None
 
     if model_name == "slowfast_r50":
@@ -223,6 +252,20 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
 
 
 def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_epochs):
+    """Train the given model for the given number of epochs using the specified train and validation data loaders.
+
+        Args:
+            model (torch.nn.Module): The model to be trained.
+            train_loader (torch.utils.data.DataLoader): The data loader for the training data.
+            val_loader (torch.utils.data.DataLoader): The data loader for the validation data.
+            criterion (torch.nn.modules.loss._Loss): The loss function to be used during training.
+            optimizer (torch.optim.Optimizer): The optimizer to be used during training.
+            num_epochs (int): The number of epochs to train the model.
+
+        Returns:
+            tuple: A tuple containing the trained model, training loss values, training accuracy values,
+            validation loss values, and validation accuracy values.
+        """
     since = time.time()
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
@@ -322,12 +365,24 @@ def train_model_v2(model, train_loader, val_loader, criterion, optimizer, num_ep
 
 
 def split_dataset(dataset_name, batch_size=8, transform=None):
+    """Returns train and validation data loaders for the given dataset.
+
+    Args:
+        dataset_name (str): The name of the dataset.
+        batch_size (int): The batch size
+        transform: Transformations to apply to the dataset.
+
+    Returns:
+        tuple: A tuple containing the train and validation data loaders.
+    """
+
     dataset = Path(os.getcwd()) / f"{dataset_name}"
     deadlift_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "dataset.csv", transform=transform)
 
     dataset_size = len(deadlift_dataset)
 
     '''
+    # Another type of train/val split
     dataset_indices = list(range(dataset_size))
     np.random.shuffle(dataset_indices)
     val_split_index = int(np.floor(0.2 * dataset_size))
@@ -361,25 +416,18 @@ def split_dataset(dataset_name, batch_size=8, transform=None):
     return train_loader, val_loader
 
 
-def model_evaluation(train_loss_values, train_acc_values, val_loss_values, val_acc_values, model_name, num_classes,
-                     feature_extract, model_save_path,
-                     saving_model_name):
-    # Load best model's parameters
-    # model_v1 = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
-    # model_v1.load_state_dict(torch.load(model_save_path))
+def save_training_stats(train_loss_values, train_acc_values, val_loss_values, val_acc_values, saving_model_name):
+    """Save the training statistics to a pickle file.
 
-    '''
-    plt.plot(epoch_count, torch.tensor(train_loss_values).numpy(), label="Train loss")
-    plt.plot(epoch_count, torch.tensor(val_loss_values).numpy(), label="Val loss")
-    plt.title("Training and Test loss curves")
-    plt.ylabel("Loss")
-    plt.xlabel("Epochs")
-    plt.legend();
-    '''
-
+    Args:
+        train_loss_values (list): List of training losses for each epoch.
+        train_acc_values (list): List of training accuracies for each epoch.
+        val_loss_values (list): List of validation losses for each epoch.
+        val_acc_values (list): List of validation accuracies for each epoch.
+        saving_model_name (str): Name of the model being saved.
+    """
     print("Saving training stats....")
-    path = Path(os.getcwd()) \
-           / f"Deadlift_models/{saving_model_name}.pickle"
+    path = Path(os.getcwd()) / f"Deadlift_models/{saving_model_name}.pickle"
     save_object = {'loss': (train_loss_values, val_loss_values), 'acc': (train_acc_values, val_acc_values)}
     with open(path, 'wb') as handle:
         pickle.dump(save_object, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -387,6 +435,16 @@ def model_evaluation(train_loss_values, train_acc_values, val_loss_values, val_a
 
 
 def inference(video_path, reps_range):
+    """Evaluate the number of deadlift repetitions in a given video.
+
+    Args:
+        video_path (str): File path to the input video.
+        reps_range (list): List of tuples indicating start and end times (in seconds) of each repetition in the video.
+
+    Returns:
+        list: A list of predicted classes for each repetition, where 0 indicates a bad repetition and 1 indicates a good
+         repetition.
+    """
     print("Evaluation of your repetitions started")
     model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
     checkpoint = torch.load(weights, map_location=device)
@@ -440,8 +498,17 @@ def inference(video_path, reps_range):
 
 
 def evaluate_accuracy():
+    """Evaluate the accuracy of the model on the test set.
+
+    Loads the test set from a CSV file and applies the test_transform
+    to normalize the video input. Then it loads the model from the saved
+    checkpoint and applies it to the inputs of the test set, calculating
+    the running_corrects metric to obtain the total accuracy on the test set.
+
+    """
     test_dataset = DeadliftDataset(root=dataset, csv_file=dataset / "test.csv", transform=test_transform)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=4, shuffle=False)
+
     # Evaluation
     print(f"Accuracy test of the model")
     model = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
@@ -449,6 +516,7 @@ def evaluate_accuracy():
     model.to(device)
     model.eval()
     running_corrects = 0
+
     with torch.inference_mode():
         for inputs, labels in test_loader:
             inputs = [i.to(device) for i in inputs]
@@ -475,32 +543,24 @@ if __name__ == '__main__':
 
     if not resume:
         model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
-
     else:
         model_ft = initialize_model(model_name, num_classes, feature_extract, use_pretrained=False)
-
         model_path.mkdir(parents=True, exist_ok=True)
         model_load_name = f"{loading_model_name}.pth"
         model_load_path = model_path / model_load_name
 
-    # Gather the parameters to be optimized/updated in this run. If we are
-    #  finetuning we will be updating all parameters. However, if we are
-    #  doing feature extract method, we will only update the parameters
-    #  that we have just initialized, i.e. the parameters with requires_grad
-    #  is True.
+    # Gather the parameters to be optimized/updated in this run.
+    # If we are finetuning we will be updating all parameters. However, if we are
+    # doing feature extract method, we will only update the parameters
+    # that we have just initialized, i.e. the parameters with requires_grad is True.
     model_ft.to(device)
     params_to_update = model_ft.parameters()
     print(f"{model_name} initialization completed")
     if feature_extract:
         params_to_update = []
         for name, param in model_ft.named_parameters():
-            if param.requires_grad == True:
+            if param.requires_grad:
                 params_to_update.append(param)
-                # print("\t", name)
-    # else:
-    #     for name, param in model_ft.named_parameters():
-    #         if param.requires_grad == True:
-    #             print("\t", name)
 
     optimizer_ft = optim.SGD(params_to_update, lr=0.001, momentum=0.9)
     loss_fn = nn.CrossEntropyLoss()
@@ -517,13 +577,11 @@ if __name__ == '__main__':
     model_save_path = model_path / model_save_name
 
     dataset = "Dataset_downscaled_540p"
-
     train_loader, val_loader = split_dataset(dataset, batch_size=16, transform=transform)
 
     model_ft, tr_l, tr_a, val_l, val_a = train_model_v2(model_ft, train_loader, val_loader, loss_fn, optimizer_ft,
                                                         num_epochs=num_epochs)
 
-    model_evaluation(tr_l, tr_a, val_l, val_a, model_name, num_classes, feature_extract, model_save_path,
-                     saving_model_name)
+    save_training_stats(tr_l, tr_a, val_l, val_a, saving_model_name)
 
 # inference()
