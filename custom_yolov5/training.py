@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from roboflow import Roboflow
 
@@ -39,6 +40,8 @@ def val(dataset_location):
 
 
 if __name__ == '__main__':
+    sys.path.insert(0, "yolov5")
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--load', action='store_true', help='Load dataset from Roboflow before training')
     parser.add_argument('-v', '--val', action='store_true', help='Validation')
