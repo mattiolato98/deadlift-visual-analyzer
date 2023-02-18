@@ -216,7 +216,7 @@ def shrink_reps(rep_dict):
 
 
 def evaluation(video_path, yolo_detection, save_reps):
-    """Evaluate the repetitions of a single video\
+    """Evaluate the repetitions of a single video.
 
     Args:
         video_path (str): The path to the input video file.
