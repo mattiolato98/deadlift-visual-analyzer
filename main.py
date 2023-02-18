@@ -6,7 +6,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import pandas as pd
 import tqdm
 import math
 
@@ -20,7 +19,7 @@ from pose_classification.pose_classifier import PoseClassifier
 from pose_classification.pose_embedder import FullBodyPoseEmbedder
 from rep_counter.repetition_counter import RepetitionCounter
 from slowfast.slowfast import inference as slowfast_inference
-from video_utils.video import Video
+from video_wrapper.video import Video
 
 WEIGHTS_PATH = 'custom_weights/yolo_best_weights.pt'
 PATH = 'test/videos/'
