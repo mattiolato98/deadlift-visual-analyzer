@@ -1,14 +1,12 @@
 import argparse
 import os
-import torch
-import yaml
 
 from roboflow import Roboflow
-from yolov5.utils.downloads import attempt_download
 
 IMG_SIZE = 640
 BATCH_SIZE = 16
 EPOCHS = 100
+WEIGHTS_PATH = 'custom_weights/yolov5s.pt'
 
 
 def load_dataset():
@@ -29,7 +27,7 @@ def load_dataset():
 def train(dataset_location):
     os.system(
         f'python yolov5/train.py --img {IMG_SIZE} --batch {BATCH_SIZE} --epochs {EPOCHS} '
-        f'--data {dataset_location}/data.yaml --weights yolov5s.pt --name yolov5s_results  --cache'
+        f'--data {dataset_location}/data.yaml --weights {WEIGHTS_PATH} --name yolov5s_results  --cache'
     )
 
 
