@@ -48,7 +48,7 @@ class Video:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
                 ret, input_frame = self.cap.read()
                 font = cv2.FONT_HERSHEY_SIMPLEX
-                text = f"Repetition n{rep}: " + "Good" if pred else "Bad"
+                text = f"Repetition number {rep}: " + "Good" if pred else "Bad"
                 position = (50, 50)
                 font_scale = 1
                 color = (255, 255, 255)  # colore del testo in RGB
