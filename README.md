@@ -1,7 +1,7 @@
 # deadlift-visual-analyzer
 # Why
 
-We present YFGD (Your First Good Deadlift) for barbell deadlift technical evaluation. The purpose of our project is to offer a comprehensive evaluation and characterization of the execution of a specific physical exercise in the context of sports.
+We present YFGD (Your First Good Deadlift) for barbell deadlift technical evaluation. The purpose of our project is to offer a comprehensive evaluation and characterization of the execution of a specific physical exercise in the context of sports. Our computer vision initiative is intended to aid individuals who engage in solo gym training and seek to evaluate the accuracy of their exercise execution.
 
 This is the project of the course of Computer Vision and Cognitive Systems of the University of Modena and Reggio Emilia.
 
