@@ -31,7 +31,7 @@ class Video:
             reps (dict): A dictionary of repetition numbers and corresponding frames.
             preds (list): A list of predictions for each repetition.
         """
-        print(f"Saving your labeled repetitions in {SAVE_PATH}/{self.name}/ folder...")
+        print(f"Saving your labeled repetitions in '{SAVE_PATH}/{self.name}' folder...")
 
         try:
             os.makedirs(SAVE_PATH / self.name)  # Creating directory to store repetitions videos
@@ -48,7 +48,7 @@ class Video:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number - 1)
                 ret, input_frame = self.cap.read()
                 font = cv2.FONT_HERSHEY_SIMPLEX
-                text = f"Repetition n{rep}: " + "Good" if pred else "Bad"
+                text = f"Repetition number {rep + 1}: " + "Good" if pred else "Bad"
                 position = (50, 50)
                 font_scale = 1
                 color = (255, 255, 255)  # colore del testo in RGB
