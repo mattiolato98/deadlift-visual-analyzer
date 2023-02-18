@@ -30,7 +30,7 @@ python main.py <video_path>
 
 There are two groups of mutually exclusive parameters, regarding:
 
-* Automatic barbell detection, `-y` or `--yolo-detection` to use YOLOv5 automatic detection, `-m` or `--mean-shift` to manual select the barbell and use mean shift tracking. Note that the second option is not suitable in CLI only interfaces, since it's necessary to select the barbell in the first frame of the video.
+* Automatic barbell detection, `-y` or `--yolo-detection` to use YOLOv5 automatic detection, `-m` or `--mean-shift` to manual select the barbell and use mean shift tracking. Note that the second option is not suitable in CLI only systems, since it's necessary to select the barbell in the first frame of the video.
 * Saving single repetitions to filesystem, `-s` or `--save-reps` to save,`-n` or `--no-save-reps` not to save.
 
 **Note** that if you don't specify an option for each of the groups, the specific option will be then required in interactive mode during the execution.
