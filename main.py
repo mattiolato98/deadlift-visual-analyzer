@@ -300,6 +300,8 @@ if __name__ == '__main__':
     saving.add_argument('-n', '--no-save-reps', action='store_true', help='Don\'t save single repetitions to video.')
     args = parser.parse_args()
 
+    print('\n\n\U0001F3CB  Your First Good Dealift by Gabriele Mattioli, Sara Morandi, Filippo Rinaldi\n\n')
+
     if not args.yolo_detection and not args.mean_shift:
         automatic_detection = (
             True if input('Do you want to use automatic detection (y/n)? ').lower() != 'n'
