@@ -293,14 +293,31 @@ def show_results(filename, predictions):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--save-reps', action='store_true', help='Save single repetitions to video.')
+    parser.add_argument('video_path', help='Path of the video to evaluate.')
+    tracking_type = parser.add_mutually_exclusive_group()
+    tracking_type.add_argument(
+        '-y', '--yolo-detection', action='store_true', help='Use YOLOv5 detector to find and track the barbell.'
+    )
+    tracking_type.add_argument('-m', '--mean-shift', action='store_true', help='Use manual mean shift tracking.')
+    saving = parser.add_mutually_exclusive_group()
+    saving.add_argument('-s', '--save-reps', action='store_true', help='Save single repetitions to video.')
+    saving.add_argument('-n', '--no-save-reps', action='store_true', help='Don\'t save single repetitions to video.')
     args = parser.parse_args()
 
-    video_path = input("Enter the path of the video to classify: ")
-    automatic_detection = input("Do you want to use automatic detection (y/n)? ").lower()
-    if automatic_detection != 'n':
-        automatic_detection = True
+    if not args.yolo_detection and not args.mean_shift:
+        automatic_detection = (
+            True if input('Do you want to use automatic detection (y/n)? ').lower() != 'n'
+            else False
+        )
     else:
-        automatic_detection = False
+        automatic_detection = False if args.mean_shift else True
 
-    evaluation('test/test_good.mp4', True, True)
+    if not args.save_reps and not args.no_save_reps:
+        save_reps = (
+            True if input('Do you want to save single repetitions videos (y/n)? ').lower() != 'n'
+            else False
+        )
+    else:
+        save_reps = True if args.save_reps else False
+
+    evaluation(args.video_path, automatic_detection, save_reps)
