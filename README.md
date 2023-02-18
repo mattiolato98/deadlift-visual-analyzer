@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 **Note**
 
-The system has been tested in a Python 3.8 environment/
+The system has been tested in a Python 3.8 environment.
 
 # Inference
 
