@@ -53,7 +53,7 @@ def mean_shift_motion_frames(video_path):
         # Draw it on image
         x, y, w, h = track_window
         img2 = cv2.rectangle(frame, (x, y), (x + w, y + h), 255, 2)
-        cv2.imshow('img2', img2)
+        cv2.imshow('Manual tracking', img2)
 
         # Detect if the current frame is a motion frame
         motion_detector.detect_motion(y, frame_number)
