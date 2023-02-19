@@ -61,3 +61,7 @@ Use mean shift tracking and **don't** save the single repetitions to filesystem.
 ```bash
 python main.py <video_path> -mn
 ```
+
+## Mean shift tracking 
+
+If you choose mean shift as tracking algorithm, a window with the first frame will show up. Select the weight plates dragging the cursor from the top left corner to the bottom right one. It's reccomended to choose the closer side of the barbell for the best outcome.
