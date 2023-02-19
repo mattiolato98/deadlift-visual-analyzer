@@ -64,4 +64,4 @@ python main.py <video_path> -mn
 
 ## Mean shift tracking 
 
-If you choose mean shift as tracking algorithm, a window with the first frame will show up. Select the weight plates dragging the cursor from the top left corner to the bottom right one. It's reccomended to choose the closer side of the barbell for the best outcome.
+If you choose mean shift as tracking algorithm, a window with the first frame will show up. Select the weight plates dragging the cursor from the top left corner to the bottom right one. For optimal results, it is recommended to choose the closer side of the barbell. Press the spacebar to start the tracking process once your selection is complete.
