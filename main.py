@@ -253,6 +253,10 @@ def evaluation(video_path, yolo_detection, save_reps):
     reps_frames, total_repetitions = count_and_split_repetitions(
         video.cap, video.n_frames, video.fps, video.motion_frames)
 
+    if total_repetitions == 0:
+        print('No repetition found.')
+        return None
+
     reps_range = [(frames[0] / video.fps, frames[-1] / video.fps) for frames in reps_frames.values()]
     preds = slowfast_inference(video_path, reps_range)
     show_results(video.name, preds)
