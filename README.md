@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 **Note**
 
-The system has been tested in a Python 3.8 environment.
+The system has been tested in a Python 3.8.4 environment. The required packages versions may not work in another Python version. The overall system funcionality is not guaranteed in a different version.
 
 # Inference
 
