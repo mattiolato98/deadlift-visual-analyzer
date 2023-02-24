@@ -65,3 +65,7 @@ python main.py <video_path> -mn
 ## Mean shift tracking 
 
 If you choose mean shift as tracking algorithm, a window with the first frame will show up. Select the weight plates dragging the cursor from the top left corner to the bottom right one. For optimal results, it is recommended to choose the closer side of the barbell. Press the spacebar to start the tracking process once your selection is complete.
+
+## Saving repetitions to filesystem
+
+When you choose to save videos to filesystem (`-s`, `--save-reps` or through the interactive mode), the results will be available at the end of the execution at `<project_root_directory>/results/<video_name>/`.
